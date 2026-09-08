@@ -7,9 +7,9 @@ export default function CoursPage() {
     { href: "/cours/hggsp", icon: "🌍", title: "HGGSP", desc: "Séq.1 — S'informer, regard critique", color: "#fbbf24", ready: true },
     { href: "/cours/histgeo", icon: "🗺️", title: "Hist-Géo", desc: "Séq.1 — La métropolisation", color: "#fb923c", ready: true },
     { href: "/cours/emc", icon: "⚖️", title: "EMC", desc: "Séq.1 — Valeurs de la République", color: "#c084fc", ready: true },
+    { href: "/cours/enssci", icon: "🔬", title: "Ens. Scientifique", desc: "Séq.1 — La Terre, un astre singulier", color: "#2dd4bf", ready: true },
     { href: "#", icon: "🇬🇧", title: "Anglais", desc: "Bientôt", color: "#6366f1", ready: false },
     { href: "#", icon: "🇪🇸", title: "Espagnol", desc: "Bientôt", color: "#ef4444", ready: false },
-    { href: "#", icon: "🔬", title: "Ens. Sci", desc: "Bientôt", color: "#14b8a6", ready: false },
   ];
   return (
     <div style={{ background:"#0f172a", minHeight:"100vh", color:"#e2e8f0", fontFamily:"'Inter',system-ui,sans-serif", padding:"16px 16px 80px" }}>
