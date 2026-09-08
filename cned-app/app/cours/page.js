@@ -8,7 +8,7 @@ export default function CoursPage() {
     { href: "/cours/histgeo", icon: "🗺️", title: "Hist-Géo", desc: "Séq.1 — La métropolisation", color: "#fb923c", ready: true },
     { href: "/cours/emc", icon: "⚖️", title: "EMC", desc: "Séq.1 — Valeurs de la République", color: "#c084fc", ready: true },
     { href: "/cours/enssci", icon: "🔬", title: "Ens. Scientifique", desc: "Séq.1 — La Terre, un astre singulier", color: "#2dd4bf", ready: true },
-    { href: "#", icon: "🇬🇧", title: "Anglais", desc: "Bientôt", color: "#6366f1", ready: false },
+    { href: "/cours/anglais", icon: "🇬🇧", title: "Anglais", desc: "Séq.1 — Portraits of Power (Art & pouvoir)", color: "#818cf8", ready: true },
     { href: "#", icon: "🇪🇸", title: "Espagnol", desc: "Bientôt", color: "#ef4444", ready: false },
   ];
   return (
