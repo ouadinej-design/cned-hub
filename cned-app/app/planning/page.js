@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { VACANCES, DEVOIRS, MATIERES, EMPLOI_SEMAINE, EMPLOI_BAC, isVacation, getVacationLabel, isBacPeriod, getDevoirsForDate, formatDate } from "../../data/cned-data";
 
 const HOLIDAYS = ["2026-11-01","2026-11-11","2026-12-25","2027-01-01","2027-04-05","2027-05-01","2027-05-08","2027-05-14","2027-05-25"];
@@ -9,9 +9,12 @@ const months = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Aoû
 
 export default function PlanningPage() {
   const [stored, setStored] = useState(() => { try { return JSON.parse(localStorage.getItem("pl")||"{}"); } catch { return {}; } });
+  const [absences, setAbsences] = useState(() => { try { return JSON.parse(localStorage.getItem("abs")||"{}"); } catch { return {}; } });
   const save = (s) => { setStored(s); try { localStorage.setItem("pl", JSON.stringify(s)); } catch {} };
+  const saveAbs = (a) => { setAbsences(a); try { localStorage.setItem("abs", JSON.stringify(a)); } catch {} };
   const [wo, setWo] = useState(() => { const now = new Date(); const start = new Date(2026,8,7); return Math.max(0, Math.floor((now-start)/(7*86400000))); });
   const [sel, setSel] = useState(null);
+  const [showRattrapage, setShowRattrapage] = useState(false);
 
   const startDate = new Date(2026,8,7);
   const ws = new Date(startDate); ws.setDate(ws.getDate()+wo*7);
@@ -24,26 +27,85 @@ export default function PlanningPage() {
     if (isVacation(ds)) return { type:"vacation", label:getVacationLabel(ds) };
     if (HOLIDAYS.includes(ds)) return { type:"holiday" };
     if (isBacPeriod(ds)) { return dow===0?{type:"off"}:{type:"bac", slots:EMPLOI_BAC}; }
-    if (dow===0) return {type:"normal", slots:EMPLOI_SEMAINE[0]};
-    return { type:"normal", slots:EMPLOI_SEMAINE[dow] };
+    return { type:"normal", slots:EMPLOI_SEMAINE[dow]||[] };
+  };
+
+  // --- RATTRAPAGE : redistribute absent day's slots to remaining days ---
+  const getWeekAbsences = () => days.filter(d => absences[formatDate(d)]);
+  const weekAbsDates = getWeekAbsences();
+
+  const getRattrapageSlots = (date) => {
+    const ds = formatDate(date);
+    const sch = getSchedule(date);
+    if (sch.type !== "normal" || absences[ds]) return [];
+    // Collect missed slots from absent days this week
+    const missed = [];
+    for (const absDay of weekAbsDates) {
+      const absSch = getSchedule(absDay);
+      if (absSch.slots) {
+        absSch.slots.forEach(s => missed.push({ ...s, from: dayF[absDay.getDay()] }));
+      }
+    }
+    if (missed.length === 0) return [];
+    // Count available normal days (not absent, not vacation, not holiday)
+    const availDays = days.filter(d => {
+      const dds = formatDate(d);
+      const dsch = getSchedule(d);
+      return dsch.type === "normal" && !absences[dds];
+    });
+    if (availDays.length === 0) return [];
+    // Find index of this day among available days
+    const idx = availDays.findIndex(d => formatDate(d) === ds);
+    if (idx === -1) return [];
+    // Distribute evenly: each available day gets a chunk
+    const perDay = Math.ceil(missed.length / availDays.length);
+    const start = idx * perDay;
+    return missed.slice(start, start + perDay);
+  };
+
+  const toggleAbsence = (date) => {
+    const ds = formatDate(date);
+    const n = { ...absences };
+    if (n[ds]) { delete n[ds]; } else { n[ds] = true; delete stored[ds]; save({...stored}); }
+    saveAbs(n);
   };
 
   const weekDvs = DEVOIRS.filter(d => { const dd=d.deadline; return dd>=formatDate(days[0]) && dd<=formatDate(days[6]); });
 
+  // --- DAY DETAIL ---
   if (sel) {
     const sch = getSchedule(sel); const ds = formatDate(sel);
-    const dayDvs = getDevoirsForDate(ds); const isDone = stored[ds];
+    const dayDvs = getDevoirsForDate(ds); const isDone = stored[ds]; const isAbs = absences[ds];
+    const rattrapage = getRattrapageSlots(sel);
+
     return (
       <div style={{ background:"#0f172a", minHeight:"100vh", color:"#e2e8f0", fontFamily:"'Inter',system-ui,sans-serif", padding:"16px 16px 80px" }}>
         <div onClick={() => setSel(null)} style={{ cursor:"pointer", color:"#818cf8", fontWeight:600, fontSize:13, marginBottom:12 }}>← Retour à la semaine</div>
-        <div style={{ fontSize:20, fontWeight:700, marginBottom:4 }}>{dayF[sel.getDay()]} {sel.getDate()} {months[sel.getMonth()]}</div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+          <div style={{ fontSize:20, fontWeight:700 }}>{dayF[sel.getDay()]} {sel.getDate()} {months[sel.getMonth()]}</div>
+          {sch.type==="normal" && (
+            <button onClick={() => toggleAbsence(sel)} style={{ padding:"8px 14px", borderRadius:10, border:"none", fontSize:12, fontWeight:700, cursor:"pointer", background:isAbs?"#22c55e":"#ef4444", color:"#fff" }}>
+              {isAbs ? "✓ Retour — Annuler absence" : "🤒 Absent / Malade"}
+            </button>
+          )}
+        </div>
+
+        {isAbs && (
+          <div style={{ background:"rgba(239,68,68,.1)", borderRadius:12, padding:14, marginBottom:14, border:"1px solid rgba(239,68,68,.3)" }}>
+            <div style={{ fontWeight:700, fontSize:14, color:"#fca5a5", marginBottom:4 }}>🤒 Absent ce jour</div>
+            <div style={{ fontSize:12, color:"#fca5a5" }}>Les séances sont redistribuées sur les autres jours de la semaine.</div>
+          </div>
+        )}
+
         {sch.type==="vacation" && <div style={{ color:"#22c55e", fontWeight:600, fontSize:14, marginBottom:12 }}>🏖️ Vacances — {sch.label}</div>}
         {sch.type==="holiday" && <div style={{ color:"#22c55e", fontWeight:600, fontSize:14, marginBottom:12 }}>🎌 Jour férié</div>}
+
         {dayDvs.length>0 && <div style={{ background:"#450a0a", borderRadius:10, padding:12, marginBottom:12, border:"1px solid #991b1b" }}>
           <div style={{ fontSize:12, fontWeight:700, color:"#fca5a5", marginBottom:4 }}>⚠️ DEADLINE DEVOIR</div>
           {dayDvs.map((d,i) => <div key={i} style={{ fontSize:12, color:"#fca5a5" }}>{MATIERES[d.m]?.nom} — Devoir {d.n} ({d.type==="depot"?"à déposer":"en ligne"})</div>)}
         </div>}
-        {sch.slots && sch.slots.map((s,i) => {
+
+        {!isAbs && sch.slots && sch.slots.map((s,i) => {
           const m = MATIERES[s.matiere]; const col = m?.color||"#6366f1";
           return (
             <a key={i} href={s.matiere==="FR"?"/cours/francais":s.matiere==="MA"?"/cours/maths":undefined}
@@ -60,11 +122,37 @@ export default function PlanningPage() {
             </a>
           );
         })}
-        {(sch.type==="normal"||sch.type==="bac") && <button onClick={() => { save({...stored,[ds]:!stored[ds]}); }} style={{ marginTop:12, width:"100%", padding:12, borderRadius:10, border:"none", background:isDone?"#22c55e":"#6366f1", color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer" }}>{isDone?"✓ Terminé — Annuler":"Marquer comme terminé"}</button>}
+
+        {!isAbs && rattrapage.length>0 && (
+          <div style={{ marginTop:12 }}>
+            <div style={{ fontSize:14, fontWeight:700, color:"#f59e0b", marginBottom:8 }}>🔄 Rattrapage (séances manquées)</div>
+            {rattrapage.map((s,i) => {
+              const m = MATIERES[s.matiere]; const col = m?.color||"#6366f1";
+              return (
+                <div key={i} style={{ display:"flex", gap:12, marginBottom:8, padding:"12px 14px", borderRadius:10, background:"rgba(251,191,36,.06)", border:"1px dashed #f59e0b" }}>
+                  <div style={{ minWidth:70 }}>
+                    <div style={{ fontSize:10, color:"#f59e0b", fontWeight:600 }}>Rattrapage</div>
+                    <div style={{ fontSize:10, color:"#94a3b8" }}>du {s.from}</div>
+                  </div>
+                  <div>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                      <span style={{ width:8, height:8, borderRadius:"50%", background:col }} />
+                      <span style={{ fontSize:12, fontWeight:700, color:col }}>{m?.nom||s.matiere}</span>
+                    </div>
+                    <div style={{ fontSize:12, color:"#94a3b8" }}>{s.desc}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {!isAbs && (sch.type==="normal"||sch.type==="bac") && <button onClick={() => { save({...stored,[ds]:!stored[ds]}); }} style={{ marginTop:12, width:"100%", padding:12, borderRadius:10, border:"none", background:isDone?"#22c55e":"#6366f1", color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer" }}>{isDone?"✓ Terminé — Annuler":"Marquer comme terminé"}</button>}
       </div>
     );
   }
 
+  // --- WEEK VIEW ---
   return (
     <div style={{ background:"#0f172a", minHeight:"100vh", color:"#e2e8f0", fontFamily:"'Inter',system-ui,sans-serif", padding:"16px 16px 80px" }}>
       <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
@@ -86,38 +174,52 @@ export default function PlanningPage() {
         <button onClick={() => setWo(Math.min(totalW,wo+1))} style={{ padding:"8px 14px", borderRadius:8, background:"#1e293b", border:"1px solid #334155", color:"#e2e8f0", cursor:"pointer", fontSize:13 }}>→</button>
       </div>
 
+      {weekAbsDates.length>0 && (
+        <div style={{ background:"rgba(251,191,36,.08)", borderRadius:10, padding:12, marginBottom:12, border:"1px solid rgba(251,191,36,.3)" }}>
+          <div style={{ fontSize:12, fontWeight:700, color:"#fbbf24", marginBottom:4 }}>🔄 Rattrapage actif cette semaine</div>
+          <div style={{ fontSize:11, color:"#fcd34d" }}>{weekAbsDates.length} jour(s) d'absence — les séances sont redistribuées automatiquement</div>
+        </div>
+      )}
+
       {weekDvs.length>0 && <div style={{ background:"#450a0a", borderRadius:10, padding:12, marginBottom:12, border:"1px solid #991b1b" }}>
         <div style={{ fontSize:12, fontWeight:700, color:"#fca5a5", marginBottom:4 }}>⚠️ DEVOIRS CETTE SEMAINE</div>
         {weekDvs.map((d,i) => <div key={i} style={{ fontSize:12, color:"#fca5a5" }}>📌 {MATIERES[d.m]?.nom} — Devoir {d.n} avant le {new Date(d.deadline).getDate()}/{new Date(d.deadline).getMonth()+1}</div>)}
       </div>}
 
       {days.map((date,i) => {
-        const sch = getSchedule(date); const ds = formatDate(date); const isDone = stored[ds];
+        const sch = getSchedule(date); const ds = formatDate(date); const isDone = stored[ds]; const isAbs = absences[ds];
         const isToday = formatDate(new Date())===ds; const dayDvs = getDevoirsForDate(ds);
+        const rattrapage = getRattrapageSlots(date);
         let bg="#1e293b", bd="#334155";
         if (sch.type==="vacation"||sch.type==="holiday") { bg="#052e16"; bd="#22c55e"; }
         if (sch.type==="bac") { bg="#450a0a"; bd="#ef4444"; }
+        if (isAbs) { bg="#1c1917"; bd="#78716c"; }
         if (isDone) bd="#22c55e"; if (isToday) bd="#3b82f6";
         return (
           <div key={i} onClick={() => { if(sch.type!=="vacation"&&sch.type!=="holiday") setSel(date); }}
-            style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", marginBottom:4, background:bg, border:`${isToday?"2px":"1px"} solid ${bd}`, borderRadius:10, cursor:sch.type==="vacation"?"default":"pointer" }}>
-            <div style={{ width:36, height:36, borderRadius:"50%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", flexShrink:0, background:isDone?"#22c55e":isToday?"#3b82f6":"#334155", color:isDone||isToday?"#fff":"#94a3b8" }}>
+            style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", marginBottom:4, background:bg, border:`${isToday?"2px":"1px"} solid ${bd}`, borderRadius:10, cursor:sch.type==="vacation"?"default":"pointer", opacity:isAbs?.5:1 }}>
+            <div style={{ width:36, height:36, borderRadius:"50%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", flexShrink:0, background:isDone?"#22c55e":isAbs?"#78716c":isToday?"#3b82f6":"#334155", color:isDone||isToday?"#fff":"#94a3b8" }}>
               <span style={{ fontSize:9, fontWeight:600 }}>{dayN[date.getDay()]}</span>
               <span style={{ fontSize:13, fontWeight:700 }}>{date.getDate()}</span>
             </div>
             <div style={{ flex:1 }}>
-              {sch.type==="vacation" && <span style={{ fontSize:12, color:"#22c55e", fontWeight:600 }}>🏖️ {sch.label}</span>}
-              {sch.type==="holiday" && <span style={{ fontSize:12, color:"#22c55e", fontWeight:600 }}>🎌 Jour férié</span>}
-              {sch.type==="off" && <span style={{ fontSize:12, color:"#94a3b8" }}>Repos</span>}
-              {sch.type==="bac" && <span style={{ fontSize:12, color:"#ef4444", fontWeight:700 }}>🎯 BAC BLANC — Fr + Ma</span>}
-              {sch.type==="normal" && <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-                {sch.slots.map((s,si) => { const m=MATIERES[s.matiere]; return (
-                  <span key={si} style={{ fontSize:9, fontWeight:600, padding:"2px 6px", borderRadius:4, background:s.prof?"#fbbf24":m?.bg||"#334155", color:s.prof?"#78350f":m?.text||"#94a3b8" }}>{s.prof?"📚 ":""}{m?.court||s.matiere}</span>
-                ); })}
+              {isAbs && <span style={{ fontSize:12, color:"#a8a29e", fontWeight:600 }}>🤒 Absent — séances redistribuées</span>}
+              {!isAbs && sch.type==="vacation" && <span style={{ fontSize:12, color:"#22c55e", fontWeight:600 }}>🏖️ {sch.label}</span>}
+              {!isAbs && sch.type==="holiday" && <span style={{ fontSize:12, color:"#22c55e", fontWeight:600 }}>🎌 Jour férié</span>}
+              {!isAbs && sch.type==="off" && <span style={{ fontSize:12, color:"#94a3b8" }}>Repos</span>}
+              {!isAbs && sch.type==="bac" && <span style={{ fontSize:12, color:"#ef4444", fontWeight:700 }}>🎯 BAC BLANC — Fr + Ma</span>}
+              {!isAbs && sch.type==="normal" && <div>
+                <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+                  {(sch.slots||[]).map((s,si) => { const m=MATIERES[s.matiere]; return (
+                    <span key={si} style={{ fontSize:9, fontWeight:600, padding:"2px 6px", borderRadius:4, background:s.prof?"#fbbf24":m?.bg||"#334155", color:s.prof?"#78350f":m?.text||"#94a3b8" }}>{s.prof?"📚 ":""}{m?.court||s.matiere}</span>
+                  ); })}
+                  {rattrapage.length>0 && <span style={{ fontSize:9, fontWeight:600, padding:"2px 6px", borderRadius:4, background:"rgba(251,191,36,.2)", color:"#fbbf24" }}>+{rattrapage.length} rattrapage</span>}
+                </div>
               </div>}
               {dayDvs.length>0 && <div style={{ fontSize:10, color:"#ef4444", fontWeight:600, marginTop:2 }}>⚠️ Devoir {dayDvs.map(d=>MATIERES[d.m]?.court).join(", ")}</div>}
             </div>
             {isDone && <span>✅</span>}
+            {isAbs && <span>🤒</span>}
           </div>
         );
       })}
