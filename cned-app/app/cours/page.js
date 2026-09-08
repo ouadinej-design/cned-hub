@@ -1,8 +1,8 @@
 "use client";
 export default function CoursPage() {
   const matieres = [
-    { href: "/cours/maths", icon: "📐", title: "Maths", desc: "Séq.1 — Polynômes du second degré", color: "#ec4899", ready: true },
-    { href: "#", icon: "📖", title: "Français", desc: "Séq.1 — Rimbaud (bientôt)", color: "#3b82f6", ready: false },
+    { href: "/cours/maths", icon: "📐", title: "Maths", desc: "Séq.1 — Polynômes du second degré", color: "#818cf8", ready: true },
+    { href: "/cours/francais", icon: "📖", title: "Français", desc: "Séq.1 — Rimbaud, Les Cahiers de Douai", color: "#60a5fa", ready: true },
     { href: "#", icon: "📊", title: "SES", desc: "Bientôt", color: "#10b981", ready: false },
     { href: "#", icon: "🌍", title: "HGGSP", desc: "Bientôt", color: "#f59e0b", ready: false },
     { href: "#", icon: "🗺️", title: "Hist-Géo", desc: "Bientôt", color: "#f97316", ready: false },
@@ -12,28 +12,27 @@ export default function CoursPage() {
     { href: "#", icon: "⚖️", title: "EMC", desc: "Bientôt", color: "#a855f7", ready: false },
   ];
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      <div className="flex items-center gap-3 mb-6">
-        <a href="/" className="text-2xl text-gray-400 hover:text-gray-600">←</a>
+    <div style={{ background:"#0f172a", minHeight:"100vh", color:"#e2e8f0", fontFamily:"'Inter',system-ui,sans-serif", padding:"16px 16px 80px" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:24 }}>
+        <a href="/" style={{ fontSize:22, color:"#94a3b8", textDecoration:"none" }}>←</a>
         <div>
-          <h1 className="text-2xl font-bold">Cours interactifs</h1>
-          <p className="text-sm text-gray-500">Prof IA + Exercices + Quiz</p>
+          <div style={{ fontSize:24, fontWeight:800 }}>🎓 Cours interactifs</div>
+          <div style={{ fontSize:12, color:"#94a3b8" }}>Prof IA + Exercices + Quiz</div>
         </div>
       </div>
-      <div className="grid gap-3">
+      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
         {matieres.map((m) => (
           <a key={m.title} href={m.ready ? m.href : undefined}
-            className={`block p-4 rounded-xl border transition-all ${m.ready ? "bg-white border-gray-200 hover:shadow-md cursor-pointer" : "bg-gray-50 border-gray-100 opacity-60 cursor-not-allowed"}`}
-            style={{ borderLeftWidth: 4, borderLeftColor: m.color }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{m.icon}</span>
+            style={{ display:"block", padding:16, borderRadius:14, background:"#1e293b", textDecoration:"none", color:"#e2e8f0", borderLeft:`4px solid ${m.color}`, opacity:m.ready?1:0.5, cursor:m.ready?"pointer":"not-allowed" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                <span style={{ fontSize:28 }}>{m.icon}</span>
                 <div>
-                  <div className="font-bold">{m.title}</div>
-                  <div className="text-sm text-gray-500">{m.desc}</div>
+                  <div style={{ fontWeight:700, fontSize:16 }}>{m.title}</div>
+                  <div style={{ fontSize:13, color:"#94a3b8" }}>{m.desc}</div>
                 </div>
               </div>
-              {m.ready && <span className="text-green-500 text-sm font-bold">Disponible →</span>}
+              {m.ready && <span style={{ color:"#22c55e", fontSize:13, fontWeight:700 }}>→</span>}
             </div>
           </a>
         ))}
