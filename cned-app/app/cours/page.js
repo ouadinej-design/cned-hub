@@ -5,7 +5,7 @@ export default function CoursPage() {
     { href: "/cours/francais", icon: "📖", title: "Français", desc: "Séq.1 — Rimbaud, Les Cahiers de Douai", color: "#60a5fa", ready: true },
     { href: "/cours/ses", icon: "📊", title: "SES", desc: "Séq.1 — La coordination par le marché", color: "#34d399", ready: true },
     { href: "/cours/hggsp", icon: "🌍", title: "HGGSP", desc: "Séq.1 — S'informer, regard critique", color: "#fbbf24", ready: true },
-    { href: "#", icon: "🗺️", title: "Hist-Géo", desc: "Bientôt", color: "#f97316", ready: false },
+    { href: "/cours/histgeo", icon: "🗺️", title: "Hist-Géo", desc: "Séq.1 — La métropolisation", color: "#fb923c", ready: true },
     { href: "#", icon: "🇬🇧", title: "Anglais", desc: "Bientôt", color: "#6366f1", ready: false },
     { href: "#", icon: "🇪🇸", title: "Espagnol", desc: "Bientôt", color: "#ef4444", ready: false },
     { href: "#", icon: "🔬", title: "Ens. Sci", desc: "Bientôt", color: "#14b8a6", ready: false },
