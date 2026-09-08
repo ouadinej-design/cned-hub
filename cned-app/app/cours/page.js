@@ -4,7 +4,7 @@ export default function CoursPage() {
     { href: "/cours/maths", icon: "📐", title: "Maths", desc: "Séq.1 — Polynômes du second degré", color: "#818cf8", ready: true },
     { href: "/cours/francais", icon: "📖", title: "Français", desc: "Séq.1 — Rimbaud, Les Cahiers de Douai", color: "#60a5fa", ready: true },
     { href: "/cours/ses", icon: "📊", title: "SES", desc: "Séq.1 — La coordination par le marché", color: "#34d399", ready: true },
-    { href: "#", icon: "🌍", title: "HGGSP", desc: "Bientôt", color: "#f59e0b", ready: false },
+    { href: "/cours/hggsp", icon: "🌍", title: "HGGSP", desc: "Séq.1 — S'informer, regard critique", color: "#fbbf24", ready: true },
     { href: "#", icon: "🗺️", title: "Hist-Géo", desc: "Bientôt", color: "#f97316", ready: false },
     { href: "#", icon: "🇬🇧", title: "Anglais", desc: "Bientôt", color: "#6366f1", ready: false },
     { href: "#", icon: "🇪🇸", title: "Espagnol", desc: "Bientôt", color: "#ef4444", ready: false },
