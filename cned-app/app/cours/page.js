@@ -3,7 +3,7 @@ export default function CoursPage() {
   const matieres = [
     { href: "/cours/maths", icon: "📐", title: "Maths", desc: "Séq.1 — Polynômes du second degré", color: "#818cf8", ready: true },
     { href: "/cours/francais", icon: "📖", title: "Français", desc: "Séq.1 — Rimbaud, Les Cahiers de Douai", color: "#60a5fa", ready: true },
-    { href: "#", icon: "📊", title: "SES", desc: "Bientôt", color: "#10b981", ready: false },
+    { href: "/cours/ses", icon: "📊", title: "SES", desc: "Séq.1 — La coordination par le marché", color: "#34d399", ready: true },
     { href: "#", icon: "🌍", title: "HGGSP", desc: "Bientôt", color: "#f59e0b", ready: false },
     { href: "#", icon: "🗺️", title: "Hist-Géo", desc: "Bientôt", color: "#f97316", ready: false },
     { href: "#", icon: "🇬🇧", title: "Anglais", desc: "Bientôt", color: "#6366f1", ready: false },
