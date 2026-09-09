@@ -11,6 +11,28 @@ function logActivity(matiere) {
   } catch {}
 }
 
+function logDifficulty(matiereFull, seance, question, userAnswer, correctAnswer, hint) {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const log = JSON.parse(localStorage.getItem("difficulties_log") || "{}");
+    if (!log[today]) log[today] = {};
+    if (!log[today][matiereFull]) log[today][matiereFull] = [];
+    log[today][matiereFull].push({ type: "exercice", seance, question, userAnswer, correctAnswer, hint, ts: Date.now() });
+    localStorage.setItem("difficulties_log", JSON.stringify(log));
+  } catch {}
+}
+
+function logQuizResult(matiereFull, seance, score, total, wrongQuestions) {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const log = JSON.parse(localStorage.getItem("difficulties_log") || "{}");
+    if (!log[today]) log[today] = {};
+    if (!log[today][matiereFull]) log[today][matiereFull] = [];
+    log[today][matiereFull].push({ type: "quiz", seance, score, total, wrongQuestions, ts: Date.now() });
+    localStorage.setItem("difficulties_log", JSON.stringify(log));
+  } catch {}
+}
+
 const SEANCES = [
   {
     id: 1, title: "S'informer : un regard critique sur l'information",
@@ -241,7 +263,7 @@ function Exos({ s, mark }) {
         <input value={ans[gi]||""} onChange={e => setAns({...ans,[gi]:e.target.value})} placeholder="Ta réponse..."
           style={{ width:"100%", padding:10, borderRadius:8, border:"1px solid #334155", background:"#0f172a", color:"#e2e8f0", fontSize:14, boxSizing:"border-box" }} />
         <div style={{ display:"flex", gap:8, marginTop:10 }}>
-          <button onClick={() => { const a=(ans[gi]||"").toLowerCase().replace(/\s/g,""); const c=ex.answer.toLowerCase().replace(/\s/g,""); setRes({...res,[gi]:a===c||a.includes(c)||c.includes(a)}); }}
+          <button onClick={() => { const a=(ans[gi]||"").toLowerCase().replace(/\s/g,""); const c=ex.answer.toLowerCase().replace(/\s/g,""); const ok=a===c||a.includes(c)||c.includes(a); setRes({...res,[gi]:ok}); if(!ok) logDifficulty("HGGSP", s.title, ex.q, ans[gi]||"(vide)", ex.answer, ex.hint); }}
             style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#f59e0b", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Vérifier</button>
           {r===false && <button onClick={() => alert("💡 "+ex.hint)} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#d97706", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Indice</button>}
         </div>
@@ -260,7 +282,7 @@ function Quiz({ s, mark }) {
   const [sh, setSh] = useState(false);
   const q = s.quiz[qi];
   const chk = (i) => { if(sh) return; setSel(i); setSh(true); if(i===q.correct) setSc(x=>x+1); };
-  const nxt = () => { if(qi<s.quiz.length-1){ setQi(qi+1); setSel(null); setSh(false); } else { setFin(true); if(sc+(sel===q.correct?1:0)>=Math.ceil(s.quiz.length*.6)) mark(s.id,"quiz"); } };
+  const nxt = () => { if(qi<s.quiz.length-1){ setQi(qi+1); setSel(null); setSh(false); } else { setFin(true); const finalScore = sc+(sel===q.correct?1:0); if(finalScore>=Math.ceil(s.quiz.length*.6)) mark(s.id,"quiz"); const wrong = s.quiz.filter((qq,idx) => idx<=qi && !(idx===qi?sel===qq.correct:true)).map(qq=>qq.q); logQuizResult("HGGSP", s.title, finalScore, s.quiz.length, wrong); } };
   const rst = () => { setQi(0); setSel(null); setSc(0); setFin(false); setSh(false); };
   if(fin) return (<div style={{ background:"#1e293b", borderRadius:14, padding:24, textAlign:"center" }}>
     <div style={{ fontSize:48, marginBottom:10 }}>{sc>=Math.ceil(s.quiz.length*.6)?"🎉":"📚"}</div>
