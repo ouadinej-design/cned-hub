@@ -9,7 +9,7 @@ export default function CoursPage() {
     { href: "/cours/emc", icon: "⚖️", title: "EMC", desc: "Séq.1 — Valeurs de la République", color: "#c084fc", ready: true },
     { href: "/cours/enssci", icon: "🔬", title: "Ens. Scientifique", desc: "Séq.1 — La Terre, un astre singulier", color: "#2dd4bf", ready: true },
     { href: "/cours/anglais", icon: "🇬🇧", title: "Anglais", desc: "Séq.1 — Portraits of Power (Art & pouvoir)", color: "#818cf8", ready: true },
-    { href: "#", icon: "🇪🇸", title: "Espagnol", desc: "Bientôt", color: "#ef4444", ready: false },
+    { href: "/cours/espagnol", icon: "🇪🇸", title: "Espagnol", desc: "Séq.1 — Sin avances ¿no hay futuro?", color: "#f87171", ready: true },
   ];
   return (
     <div style={{ background:"#0f172a", minHeight:"100vh", color:"#e2e8f0", fontFamily:"'Inter',system-ui,sans-serif", padding:"16px 16px 80px" }}>
@@ -17,7 +17,7 @@ export default function CoursPage() {
         <a href="/" style={{ fontSize:22, color:"#94a3b8", textDecoration:"none" }}>←</a>
         <div>
           <div style={{ fontSize:24, fontWeight:800 }}>🎓 Cours interactifs</div>
-          <div style={{ fontSize:12, color:"#94a3b8" }}>Prof IA + Exercices + Quiz</div>
+          <div style={{ fontSize:12, color:"#94a3b8" }}>Prof IA + Exercices + Quiz — 9 matières disponibles</div>
         </div>
       </div>
       <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
