@@ -10,6 +10,8 @@ const months = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Aoû
 export default function PlanningPage() {
   const [stored, setStored] = useState(() => { try { return JSON.parse(localStorage.getItem("pl")||"{}"); } catch { return {}; } });
   const [absences, setAbsences] = useState(() => { try { return JSON.parse(localStorage.getItem("abs")||"{}"); } catch { return {}; } });
+  const [activity, setActivity] = useState(() => { try { return JSON.parse(localStorage.getItem("activity_log")||"{}"); } catch { return {}; } });
+  useEffect(() => { const iv = setInterval(() => { try { setActivity(JSON.parse(localStorage.getItem("activity_log")||"{}")); } catch {} }, 3000); return () => clearInterval(iv); }, []);
   const save = (s) => { setStored(s); try { localStorage.setItem("pl", JSON.stringify(s)); } catch {} };
   const saveAbs = (a) => { setAbsences(a); try { localStorage.setItem("abs", JSON.stringify(a)); } catch {} };
   const [wo, setWo] = useState(() => { const now = new Date(); const start = new Date(2026,8,7); return Math.max(0, Math.floor((now-start)/(7*86400000))); });
@@ -29,6 +31,9 @@ export default function PlanningPage() {
     if (isBacPeriod(ds)) { return dow===0?{type:"off"}:{type:"bac", slots:EMPLOI_BAC}; }
     return { type:"normal", slots:EMPLOI_SEMAINE[dow]||[] };
   };
+  const hasActivity = (dateStr, matiere) => !!(activity[dateStr] && activity[dateStr][matiere]);
+  const dayFullyDone = (date) => { const ds = formatDate(date); const sch = getSchedule(date); if (sch.type !== "normal" || !sch.slots) return false; const matieres = [...new Set(sch.slots.filter(s=>!s.prof).map(s=>s.matiere))]; return matieres.length>0 && matieres.every(m => hasActivity(ds, m)); };
+
 
   // --- RATTRAPAGE : redistribute absent day's slots to remaining days ---
   const getWeekAbsences = () => days.filter(d => absences[formatDate(d)]);
@@ -75,7 +80,7 @@ export default function PlanningPage() {
   // --- DAY DETAIL ---
   if (sel) {
     const sch = getSchedule(sel); const ds = formatDate(sel);
-    const dayDvs = getDevoirsForDate(ds); const isDone = stored[ds]; const isAbs = absences[ds];
+    const dayDvs = getDevoirsForDate(ds); const isDone = stored[ds] || dayFullyDone(sel); const isAbs = absences[ds];
     const rattrapage = getRattrapageSlots(sel);
 
     return (
@@ -107,11 +112,13 @@ export default function PlanningPage() {
 
         {!isAbs && sch.slots && sch.slots.map((s,i) => {
           const m = MATIERES[s.matiere]; const col = m?.color||"#6366f1";
+          const cursDone = !s.prof && hasActivity(ds, s.matiere);
+          const cursHref = {FR:"/cours/francais",MA:"/cours/maths",SES:"/cours/ses",HGGSP:"/cours/hggsp",HG:"/cours/histgeo",EMC:"/cours/emc",SC:"/cours/enssci",AN:"/cours/anglais",ES:"/cours/espagnol"}[s.matiere];
           return (
-            <a key={i} href={s.matiere==="FR"?"/cours/francais":s.matiere==="MA"?"/cours/maths":undefined}
-              style={{ display:"flex", gap:12, marginBottom:8, padding:"12px 14px", borderRadius:10, background:s.prof?"rgba(251,191,36,.1)":"#1e293b", border:`1px solid ${s.prof?"#f59e0b":"#334155"}`, textDecoration:"none", color:"#e2e8f0" }}>
+            <a key={i} href={cursHref}
+              style={{ display:"flex", gap:12, marginBottom:8, padding:"12px 14px", borderRadius:10, background:s.prof?"rgba(251,191,36,.1)":cursDone?"rgba(34,197,94,.08)":"#1e293b", border:`1px solid ${s.prof?"#f59e0b":cursDone?"#22c55e":"#334155"}`, textDecoration:"none", color:"#e2e8f0" }}>
               <div style={{ minWidth:70, fontSize:12, fontWeight:700, color:s.prof?"#fbbf24":col }}>{s.time}</div>
-              <div>
+              <div style={{ flex:1 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
                   <span style={{ width:8, height:8, borderRadius:"50%", background:col }} />
                   <span style={{ fontSize:12, fontWeight:700, color:col }}>{m?.nom||s.matiere}</span>
@@ -119,6 +126,7 @@ export default function PlanningPage() {
                 </div>
                 <div style={{ fontSize:12, color:"#94a3b8" }}>{s.desc}</div>
               </div>
+              {cursDone && <span style={{ fontSize:16 }}>✅</span>}
             </a>
           );
         })}
@@ -187,7 +195,7 @@ export default function PlanningPage() {
       </div>}
 
       {days.map((date,i) => {
-        const sch = getSchedule(date); const ds = formatDate(date); const isDone = stored[ds]; const isAbs = absences[ds];
+        const sch = getSchedule(date); const ds = formatDate(date); const isDone = stored[ds] || dayFullyDone(date); const isAbs = absences[ds];
         const isToday = formatDate(new Date())===ds; const dayDvs = getDevoirsForDate(ds);
         const rattrapage = getRattrapageSlots(date);
         let bg="#1e293b", bd="#334155";
@@ -210,8 +218,8 @@ export default function PlanningPage() {
               {!isAbs && sch.type==="bac" && <span style={{ fontSize:12, color:"#ef4444", fontWeight:700 }}>🎯 BAC BLANC — Fr + Ma</span>}
               {!isAbs && sch.type==="normal" && <div>
                 <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-                  {(sch.slots||[]).map((s,si) => { const m=MATIERES[s.matiere]; return (
-                    <span key={si} style={{ fontSize:9, fontWeight:600, padding:"2px 6px", borderRadius:4, background:s.prof?"#fbbf24":m?.bg||"#334155", color:s.prof?"#78350f":m?.text||"#94a3b8" }}>{s.prof?"📚 ":""}{m?.court||s.matiere}</span>
+                  {(sch.slots||[]).map((s,si) => { const m=MATIERES[s.matiere]; const cd=!s.prof && hasActivity(ds, s.matiere); return (
+                    <span key={si} style={{ fontSize:9, fontWeight:600, padding:"2px 6px", borderRadius:4, background:cd?"rgba(34,197,94,.2)":s.prof?"#fbbf24":m?.bg||"#334155", color:cd?"#22c55e":s.prof?"#78350f":m?.text||"#94a3b8" }}>{cd?"✅ ":s.prof?"📚 ":""}{m?.court||s.matiere}</span>
                   ); })}
                   {rattrapage.length>0 && <span style={{ fontSize:9, fontWeight:600, padding:"2px 6px", borderRadius:4, background:"rgba(251,191,36,.2)", color:"#fbbf24" }}>+{rattrapage.length} rattrapage</span>}
                 </div>

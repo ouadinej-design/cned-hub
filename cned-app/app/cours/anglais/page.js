@@ -1,6 +1,16 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 
+function logActivity(matiere) {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const log = JSON.parse(localStorage.getItem("activity_log") || "{}");
+    if (!log[today]) log[today] = {};
+    log[today][matiere] = Date.now();
+    localStorage.setItem("activity_log", JSON.stringify(log));
+  } catch {}
+}
+
 const SEANCES = [
   {
     id: 1, title: "Portraits of Power — Art et pouvoir",
@@ -45,7 +55,7 @@ export default function AnglaisPage() {
   const [tab, setTab] = useState("cours");
   const [prog, setProg] = useState(() => { try { const s = typeof window!=="undefined" && localStorage.getItem("anp"); return s ? JSON.parse(s) : {}; } catch { return {}; } });
   const save = (p) => { setProg(p); try { localStorage.setItem("anp", JSON.stringify(p)); } catch {} };
-  const mark = (id, t) => { if (!prog[`${id}_${t}`]) save({ ...prog, [`${id}_${t}`]: true }); };
+  const mark = (id, t) => { if (!prog[`${id}_${t}`]) { save({ ...prog, [`${id}_${t}`]: true }); logActivity("AN"); } };
   const done = (id, t) => !!prog[`${id}_${t}`];
   const s = SEANCES[si];
   const total = SEANCES.length * 3;
