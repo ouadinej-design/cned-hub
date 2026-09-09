@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { VACANCES, DEVOIRS, MATIERES, EMPLOI_SEMAINE, EMPLOI_BAC, isVacation, getVacationLabel, isBacPeriod, getDevoirsForDate, formatDate } from "../../data/cned-data";
 
 const HOLIDAYS = ["2026-11-01","2026-11-11","2026-12-25","2027-01-01","2027-04-05","2027-05-01","2027-05-08","2027-05-14","2027-05-25"];
