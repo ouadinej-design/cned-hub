@@ -441,10 +441,10 @@ function Progression() {
         supabase.from("absences_log").select("event_date"),
         supabase.from("reasons_log").select("*").order("event_date", { ascending: false }).limit(30),
       ]);
-      const doneSet = new Set();
-      (act || []).forEach(r => doneSet.add(`${r.event_date}__${r.matiere}`));
-      (sd || []).forEach(r => doneSet.add(`${r.event_date}__${r.matiere}`));
-      const absSet = new Set((abs || []).map(r => r.event_date));
+      // Une matière "faite" compte quel que soit le jour exact (le rattrapage peut tomber n'importe quand)
+      const doneDatesByMatiere = {};
+      (act || []).forEach(r => { if (!doneDatesByMatiere[r.matiere]) doneDatesByMatiere[r.matiere] = new Set(); doneDatesByMatiere[r.matiere].add(r.event_date); });
+      (sd || []).forEach(r => { if (!doneDatesByMatiere[r.matiere]) doneDatesByMatiere[r.matiere] = new Set(); doneDatesByMatiere[r.matiere].add(r.event_date); });
 
       const codes = Object.keys(MATIERE_LABELS);
       const result = {};
@@ -455,17 +455,18 @@ function Progression() {
       while (cur <= yesterday) {
         const ds = formatDate(cur);
         const dow = cur.getDay();
-        if (!isVacation(ds) && !HOLIDAYS_P.includes(ds) && !isBacPeriod(ds) && !absSet.has(ds)) {
+        // Une absence ne dispense pas la matière — elle compte toujours dans l'attendu, seule la date de rattrapage est libre
+        if (!isVacation(ds) && !HOLIDAYS_P.includes(ds) && !isBacPeriod(ds)) {
           const daySlots = EMPLOI_SEMAINE[dow] || [];
           codes.forEach(code => {
             if (daySlots.some(s => s.matiere === code && !s.prof)) {
               result[code].expected += 1;
-              if (doneSet.has(`${ds}__${code}`)) result[code].done += 1;
             }
           });
         }
         cur.setDate(cur.getDate() + 1);
       }
+      codes.forEach(code => { result[code].done = doneDatesByMatiere[code] ? doneDatesByMatiere[code].size : 0; });
       setRows(result);
       setReasons(rs || []);
       setLoading(false);
@@ -487,7 +488,7 @@ function Progression() {
     {codes.map(code => {
       const { expected, done } = rows[code];
       const delay = Math.max(0, expected - done);
-      const pct = expected > 0 ? Math.round((done / expected) * 100) : 100;
+      const pct = expected > 0 ? Math.min(100, Math.round((done / expected) * 100)) : 100;
       return (
         <div key={code} style={{ background: "#1e293b", borderRadius: 12, padding: 14, marginBottom: 8 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>

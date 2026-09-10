@@ -22,11 +22,17 @@ export default function ProgresPage() {
         supabase.from("slot_done").select("event_date,matiere,done").eq("done", true),
         supabase.from("absences_log").select("event_date"),
       ]);
-      const doneSet = new Set();
       const activeDates = new Set();
-      (act || []).forEach(r => { doneSet.add(`${r.event_date}__${r.matiere}`); activeDates.add(r.event_date); });
-      (sd || []).forEach(r => doneSet.add(`${r.event_date}__${r.matiere}`));
-      const absSet = new Set((abs || []).map(r => r.event_date));
+      const doneDatesByMatiere = {};
+      (act || []).forEach(r => {
+        activeDates.add(r.event_date);
+        if (!doneDatesByMatiere[r.matiere]) doneDatesByMatiere[r.matiere] = new Set();
+        doneDatesByMatiere[r.matiere].add(r.event_date);
+      });
+      (sd || []).forEach(r => {
+        if (!doneDatesByMatiere[r.matiere]) doneDatesByMatiere[r.matiere] = new Set();
+        doneDatesByMatiere[r.matiere].add(r.event_date);
+      });
 
       const codes = Object.keys(MATIERE_LABELS);
       const result = {};
@@ -37,17 +43,18 @@ export default function ProgresPage() {
       while (cur <= yesterday) {
         const ds = formatDate(cur);
         const dow = cur.getDay();
-        if (!isVacation(ds) && !HOLIDAYS.includes(ds) && !isBacPeriod(ds) && !absSet.has(ds)) {
+        // Une absence ne dispense pas la matière — le rattrapage peut se faire n'importe quel autre jour
+        if (!isVacation(ds) && !HOLIDAYS.includes(ds) && !isBacPeriod(ds)) {
           const daySlots = EMPLOI_SEMAINE[dow] || [];
           codes.forEach(code => {
             if (daySlots.some(s => s.matiere === code && !s.prof)) {
               result[code].expected += 1;
-              if (doneSet.has(`${ds}__${code}`)) result[code].done += 1;
             }
           });
         }
         cur.setDate(cur.getDate() + 1);
       }
+      codes.forEach(code => { result[code].done = doneDatesByMatiere[code] ? doneDatesByMatiere[code].size : 0; });
       setSubjectStats(result);
 
       const totalExpected = codes.reduce((s, c) => s + result[c].expected, 0);
@@ -159,7 +166,7 @@ export default function ProgresPage() {
               <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b", marginBottom: 8 }}>🔶 Matières à rattraper</div>
               {behind.map(c => {
                 const { expected, done } = subjectStats[c];
-                const pct = expected > 0 ? Math.round((done / expected) * 100) : 100;
+                const pct = expected > 0 ? Math.min(100, Math.round((done / expected) * 100)) : 100;
                 return (
                   <div key={c} style={{ background: "#1e293b", borderRadius: 12, padding: 14, marginBottom: 8, borderLeft: `4px solid ${MATIERE_LABELS[c].color}` }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>

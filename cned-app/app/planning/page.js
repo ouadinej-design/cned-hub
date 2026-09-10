@@ -99,24 +99,25 @@ export default function PlanningPage() {
   // Retard cumulé par matière depuis le début de l'année, en nombre de séances non faites (hors vacances/absences excusées)
   const computeDelay = (matiereCode) => {
     let expected = 0;
-    const doneSet = new Set();
-    Object.entries(activity).forEach(([d, ms]) => Object.keys(ms).forEach(m => doneSet.add(`${d}__${m}`)));
-    Object.keys(stored).forEach(k => { const parts = k.split("__"); doneSet.add(`${parts[0]}__${parts[1]}`); });
+    // Un jour de travail "fait" compte peu importe la date exacte : le rattrapage n'a pas besoin de tomber le même jour
+    const doneDates = new Set();
+    Object.entries(activity).forEach(([d, ms]) => { if (ms[matiereCode]) doneDates.add(d); });
+    Object.keys(stored).forEach(k => { const parts = k.split("__"); if (parts[1] === matiereCode) doneDates.add(parts[0]); });
     const cur = new Date(2026, 8, 7);
     const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); yesterday.setHours(0,0,0,0);
-    let doneCount = 0;
     while (cur <= yesterday) {
       const ds = formatDate(cur);
       const dow = cur.getDay();
-      if (!isVacation(ds) && !HOLIDAYS.includes(ds) && !isBacPeriod(ds) && !absences[ds]) {
+      // Une absence NE dispense PAS la matière — elle compte toujours dans l'attendu, seul le jour de rattrapage est libre
+      if (!isVacation(ds) && !HOLIDAYS.includes(ds) && !isBacPeriod(ds)) {
         const daySlots = EMPLOI_SEMAINE[dow] || [];
         if (daySlots.some(s => s.matiere === matiereCode && !s.prof)) {
           expected += 1;
-          if (doneSet.has(`${ds}__${matiereCode}`)) doneCount += 1;
         }
       }
       cur.setDate(cur.getDate() + 1);
     }
+    const doneCount = doneDates.size;
     return Math.max(0, expected - doneCount);
   };
 
