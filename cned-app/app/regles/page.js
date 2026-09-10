@@ -108,6 +108,16 @@ export default function ReglesPage() {
         ))}
       </div>
 
+      <div style={{ background:"rgba(59,130,246,.08)", borderRadius:14, padding:16, marginBottom:16, border:"1px solid rgba(59,130,246,.3)" }}>
+        <div style={{ fontWeight:700, fontSize:14, color:"#93c5fd", marginBottom:8 }}>🌍 Élève français de l'étranger</div>
+        <div style={{ fontSize:12, color:"#bfdbfe", lineHeight:1.7 }}>
+          Le statut de <strong>classe complète réglementée</strong> (qui donne accès au contrôle continu pour le bac) nécessite, pour un élève résidant à l'étranger, l'<strong>avis favorable du conseiller culturel de l'ambassade de France</strong>.
+        </div>
+        <div style={{ fontSize:12, color:"#bfdbfe", marginTop:8, lineHeight:1.7 }}>
+          Pour les <strong>évaluations aléatoires de contrôle</strong> et l'<strong>épreuve de remplacement</strong>, ces épreuves sont organisées "en présence" — les modalités précises pour un élève à l'étranger (centre d'examen local, déplacement en France...) ne sont pas détaillées dans le document général. <strong>À vérifier directement auprès du CNED ou de l'ambassade.</strong>
+        </div>
+      </div>
+
       <a href="https://modules.cned.fr/Actito/DAPN/Rennes/PROJET_EVALUATION_BACCALAUREAT_SESSION_2027.pdf" target="_blank" rel="noopener noreferrer"
         style={{ display:"block", textAlign:"center", padding:12, borderRadius:10, background:"#1e293b", border:"1px solid #334155", color:"#818cf8", textDecoration:"none", fontSize:12, fontWeight:600 }}>
         📄 Voir le document officiel CNED (PDF)
