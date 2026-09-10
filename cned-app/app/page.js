@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 export default function Home() {
   const cards = [
     { href:"/planning", icon:"📅", title:"Planning", desc:"Emploi du temps jour par jour", color:"#6366f1" },
+    { href:"/progres", icon:"🌟", title:"Mon suivi", desc:"Ta progression, tes matières à jour", color:"#22c55e" },
     { href:"/devoirs", icon:"📋", title:"Devoirs", desc:"Suivi des devoirs CNED", color:"#ef4444" },
     { href:"/cours", icon:"📖", title:"Cours", desc:"9 matières + Prof IA", color:"#3b82f6" },
     { href:"/regles", icon:"⚠️", title:"Règles CNED", desc:"Contrôle continu & dates clés", color:"#f59e0b" },
@@ -15,7 +16,6 @@ export default function Home() {
   const handleLogoTap = () => {
     const now = Date.now();
     if (now - lastTap.current > 1200) {
-      // trop de temps écoulé depuis le dernier tap → on repart de 1
       setTapCount(1);
     } else {
       const next = tapCount + 1;
@@ -47,7 +47,7 @@ export default function Home() {
         <div style={{ fontWeight:700, fontSize:13, color:"#fca5a5", marginBottom:4 }}>⚠️ Rappel contrôle continu</div>
         <div style={{ fontSize:12, color:"#fca5a5" }}>Bac = 40% CC + 60% épreuves. 100% devoirs rendus à temps. 14j min entre 2 devoirs même matière.</div>
       </div>
-      <div style={{ textAlign:"center", fontSize:11, color:"#475569", marginTop:20 }}>v3.1</div>
+      <div style={{ textAlign:"center", fontSize:11, color:"#475569", marginTop:20 }}>v3.2</div>
     </div>
   );
 }
