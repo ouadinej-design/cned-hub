@@ -8,6 +8,25 @@ const dayN = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
 const dayF = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
 const months = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
+// Parses "9h-11h" or "16h30-18h" into [startDecimalHour, endDecimalHour], e.g. "16h30" -> 16.5
+function parseTimeRange(str) {
+  if (!str) return [0, 0];
+  const parts = str.split("-").map(s => s.trim());
+  const toDecimal = (t) => {
+    const m = /(\d+)h(\d*)/.exec(t);
+    if (!m) return 0;
+    const h = parseInt(m[1], 10);
+    const min = m[2] ? parseInt(m[2], 10) : 0;
+    return h + min / 60;
+  };
+  const start = toDecimal(parts[0]);
+  const end = parts[1] ? toDecimal(parts[1]) : start + 1;
+  return [start, end];
+}
+function timeOverlaps(aStart, aEnd, bStart, bEnd) {
+  return aStart < bEnd && bStart < aEnd;
+}
+
 export default function PlanningPage() {
   const [stored, setStored] = useState(() => { try { return JSON.parse(localStorage.getItem("pl")||"{}"); } catch { return {}; } });
   const [absences, setAbsences] = useState(() => { try { return JSON.parse(localStorage.getItem("abs")||"{}"); } catch { return {}; } });
@@ -44,17 +63,29 @@ export default function PlanningPage() {
     if (isBacPeriod(ds)) { return dow===0?{type:"off"}:{type:"bac", slots:EMPLOI_BAC}; }
     // base template, minus hardcoded prof slots (replaced by dynamic prof_config)
     let slots = (EMPLOI_SEMAINE[dow]||[]).filter(s => !s.prof);
-    // inject dynamic recurring prof sessions matching this day of week
+    // inject dynamic recurring prof sessions matching this day of week — removing any regular slot that overlaps in time
     Object.values(profConfig).forEach(pc => {
       if (pc.jour === dow) {
+        const [ps, pe] = parseTimeRange(`${pc.heure_debut}-${pc.heure_fin}`);
+        slots = slots.filter(s => {
+          const [ss, se] = parseTimeRange(s.time);
+          return !timeOverlaps(ps, pe, ss, se);
+        });
         slots = [{ time: `${pc.heure_debut}-${pc.heure_fin}`, matiere: pc.matiere, desc: `📚 PROF DE ${MATIERES[pc.matiere]?.nom?.toUpperCase()||pc.matiere} (${pc.heure_debut}-${pc.heure_fin})`, prof: true, tentative: pc.tentative }, ...slots];
       }
     });
-    // inject one-off extra sessions for this exact date
+    // inject one-off extra sessions for this exact date — same overlap protection
     const dayExtras = extras[ds] || [];
     dayExtras.forEach(ex => {
+      const [es, ee] = parseTimeRange(`${ex.heure_debut}-${ex.heure_fin}`);
+      slots = slots.filter(s => {
+        const [ss, se] = parseTimeRange(s.time);
+        return !timeOverlaps(es, ee, ss, se);
+      });
       slots = [...slots, { time: `${ex.heure_debut}-${ex.heure_fin}`, matiere: ex.matiere, desc: ex.description, prof: ex.prof, extra: true }];
     });
+    // sort by start time so the day reads chronologically after overlap removal
+    slots = slots.slice().sort((a, b) => parseTimeRange(a.time)[0] - parseTimeRange(b.time)[0]);
     return { type:"normal", slots };
   };
   const hasActivity = (dateStr, matiere) => !!(activity[dateStr] && activity[dateStr][matiere]);
@@ -139,7 +170,7 @@ export default function PlanningPage() {
         {!isAbs && sch.slots && sch.slots.map((s,i) => {
           const m = MATIERES[s.matiere]; const col = m?.color||"#6366f1";
           const cursDone = !s.prof && hasActivity(ds, s.matiere);
-          const cursHref = {FR:"/cours/francais",MA:"/cours/maths",SES:"/cours/ses",HGGSP:"/cours/hggsp",HG:"/cours/histgeo",EMC:"/cours/emc",SC:"/cours/enssci",AN:"/cours/anglais",ES:"/cours/espagnol"}[s.matiere];
+          const cursHref = {FR:"/cours/francais",MA:"/cours/maths",SE:"/cours/ses",HG:"/cours/hggsp",HI:"/cours/histgeo",EM:"/cours/emc",SC:"/cours/enssci",AN:"/cours/anglais",ES:"/cours/espagnol"}[s.matiere];
           return (
             <a key={i} href={cursHref}
               style={{ display:"flex", gap:12, marginBottom:8, padding:"12px 14px", borderRadius:10, background:s.prof?"rgba(251,191,36,.1)":cursDone?"rgba(34,197,94,.08)":"#1e293b", border:`1px solid ${s.prof?"#f59e0b":cursDone?"#22c55e":"#334155"}`, textDecoration:"none", color:"#e2e8f0" }}>

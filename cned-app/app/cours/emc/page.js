@@ -127,7 +127,7 @@ export default function EmcPage() {
   const [tab, setTab] = useState("cours");
   const [prog, setProg] = useState(() => { try { const s = typeof window!=="undefined" && localStorage.getItem("emcp"); return s ? JSON.parse(s) : {}; } catch { return {}; } });
   const save = (p) => { setProg(p); try { localStorage.setItem("emcp", JSON.stringify(p)); } catch {} };
-  const mark = (id, t) => { if (!prog[`${id}_${t}`]) { save({ ...prog, [`${id}_${t}`]: true }); logActivity("EMC"); } };
+  const mark = (id, t) => { if (!prog[`${id}_${t}`]) { save({ ...prog, [`${id}_${t}`]: true }); logActivity("EM"); } };
   const done = (id, t) => !!prog[`${id}_${t}`];
   const s = SEANCES[si];
   const total = SEANCES.length * 3;

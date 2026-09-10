@@ -109,7 +109,7 @@ export default function HistGeoPage() {
   const [tab, setTab] = useState("cours");
   const [prog, setProg] = useState(() => { try { const s = typeof window!=="undefined" && localStorage.getItem("hgp"); return s ? JSON.parse(s) : {}; } catch { return {}; } });
   const save = (p) => { setProg(p); try { localStorage.setItem("hgp", JSON.stringify(p)); } catch {} };
-  const mark = (id, t) => { if (!prog[`${id}_${t}`]) { save({ ...prog, [`${id}_${t}`]: true }); logActivity("HG"); } };
+  const mark = (id, t) => { if (!prog[`${id}_${t}`]) { save({ ...prog, [`${id}_${t}`]: true }); logActivity("HI"); } };
   const done = (id, t) => !!prog[`${id}_${t}`];
   const s = SEANCES[si];
   const total = SEANCES.length * 3;
