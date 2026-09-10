@@ -1,5 +1,5 @@
 "use client";
-import { REGLES, DATES_CLES } from "../data/cned-data";
+import { REGLES, DATES_CLES } from "../../data/cned-data";
 
 const EPREUVES_TERMINALES = [
   "Français écrit + oral (fin de Première)",
