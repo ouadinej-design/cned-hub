@@ -229,15 +229,13 @@ function TempsTentatives() {
   const totalSeconds = Object.values(timeByMatiere).reduce((a, b) => a + b, 0);
   const matieresWithData = [...new Set([...Object.keys(timeByMatiere), ...attempts.map(a => a.matiere)])];
 
-  // group attempts by matiere + identifier to get retry counts
+  // group attempts by matiere + identifier, keeping the FULL history of every attempt (toutes les notes, même après plusieurs essais)
   const grouped = {};
   attempts.forEach(a => {
     if (!grouped[a.matiere]) grouped[a.matiere] = {};
     const key = a.type + "::" + a.identifier;
-    if (!grouped[a.matiere][key]) grouped[a.matiere][key] = { type: a.type, identifier: a.identifier, seance: a.seance, tries: 0, lastCorrect: false, lastScore: null, lastTotal: null };
-    grouped[a.matiere][key].tries += 1;
-    grouped[a.matiere][key].lastCorrect = a.correct;
-    if (a.type === "quiz") { grouped[a.matiere][key].lastScore = a.score; grouped[a.matiere][key].lastTotal = a.total; }
+    if (!grouped[a.matiere][key]) grouped[a.matiere][key] = { type: a.type, identifier: a.identifier, seance: a.seance, history: [] };
+    grouped[a.matiere][key].history.push({ correct: a.correct, score: a.score, total: a.total, ts: a.ts });
   });
 
   return (<div>
@@ -274,14 +272,22 @@ function TempsTentatives() {
           {items.length === 0 ? (
             <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>Pas d'exercice ni de quiz réalisé.</div>
           ) : items.map((it, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: i < items.length - 1 ? "1px solid #334155" : "none" }}>
-              <div style={{ flex: 1, paddingRight: 8 }}>
-                <div style={{ fontSize: 11, color: "#64748b" }}>{it.seance} {it.type === "quiz" ? "· Quiz" : "· Exercice"}</div>
-                <div style={{ fontSize: 12, color: "#e2e8f0" }}>{it.identifier.length > 60 ? it.identifier.slice(0, 60) + "…" : it.identifier}</div>
+            <div key={i} style={{ padding: "10px 0", borderBottom: i < items.length - 1 ? "1px solid #334155" : "none" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                <div style={{ flex: 1, paddingRight: 8 }}>
+                  <div style={{ fontSize: 11, color: "#64748b" }}>{it.seance} {it.type === "quiz" ? "· Quiz" : "· Exercice"}</div>
+                  <div style={{ fontSize: 12, color: "#e2e8f0" }}>{it.identifier.length > 60 ? it.identifier.slice(0, 60) + "…" : it.identifier}</div>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: it.history.length > 1 ? "#f59e0b" : "#94a3b8", flexShrink: 0 }}>{it.history.length}× tenté{it.history.length > 1 ? "s" : ""}</div>
               </div>
-              <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: it.tries > 1 ? "#f59e0b" : "#94a3b8" }}>{it.tries}× tenté{it.tries > 1 ? "s" : ""}</div>
-                <div style={{ fontSize: 11, color: it.lastCorrect ? "#22c55e" : "#ef4444" }}>{it.type === "quiz" ? `${it.lastScore}/${it.lastTotal}` : (it.lastCorrect ? "✓ réussi" : "✗ raté")}</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {it.history.map((h, hi) => (
+                  <div key={hi} title={new Date(h.ts).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                    style={{ fontSize: 11, fontWeight: 700, padding: "4px 8px", borderRadius: 8, background: h.correct ? "rgba(34,197,94,.12)" : "rgba(239,68,68,.12)", color: h.correct ? "#22c55e" : "#ef4444", border: `1px solid ${h.correct ? "rgba(34,197,94,.3)" : "rgba(239,68,68,.3)"}` }}>
+                    {it.type === "quiz" ? `${h.score}/${h.total}` : (h.correct ? "✓" : "✗")}
+                    <span style={{ opacity: .6, fontWeight: 500, marginLeft: 4 }}>#{hi + 1}</span>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
