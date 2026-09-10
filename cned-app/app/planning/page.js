@@ -163,19 +163,32 @@ export default function PlanningPage() {
     });
     // sort by start time so the day reads chronologically after overlap removal
     slots = slots.slice().sort((a, b) => parseTimeRange(a.time)[0] - parseTimeRange(b.time)[0]);
-    // Recalcul automatique : si aujourd'hui, on ajoute les matières en retard (non vues depuis le début de l'année) en fin de journée
-    if (ds === formatDate(new Date())) {
-      const already = new Set(slots.map(s => s.matiere));
-      let cursor = 20;
-      const catchups = [];
-      ["FR","MA","SE","HG","HI","AN","ES","SC","EM"].forEach(code => {
-        const delay = computeDelay(code);
-        if (delay > 0) {
+    // Recalcul automatique : le retard est réparti sur les jours à venir (2 matières max/jour, en alternance) — jamais tout empilé le même soir
+    const todayStr = formatDate(new Date());
+    if (ds >= todayStr) {
+      const allDelays = ["FR","MA","SE","HG","HI","AN","ES","SC","EM"]
+        .map(code => ({ code, delay: computeDelay(code) }))
+        .filter(d => d.delay > 0)
+        .sort((a, b) => b.delay - a.delay);
+      if (allDelays.length > 0) {
+        const dayOffset = Math.round((new Date(ds) - new Date(todayStr)) / 86400000);
+        const perDay = 2;
+        const seen = new Set();
+        const picked = [];
+        for (let i = 0; i < allDelays.length && picked.length < perDay; i++) {
+          const cand = allDelays[(dayOffset * perDay + i) % allDelays.length];
+          if (!seen.has(cand.code)) { seen.add(cand.code); picked.push(cand); }
+        }
+        const lastEnd = slots.length ? Math.max(...slots.map(s => parseTimeRange(s.time)[1])) : 18;
+        let cursor = Math.max(lastEnd, 18);
+        const catchups = [];
+        picked.forEach(({ code, delay }) => {
+          if (cursor + 1 > 22) return; // on ne dépasse jamais 22h — le reste apparaîtra un autre jour
           catchups.push({ time: `${formatTimeDecimal(cursor)}-${formatTimeDecimal(cursor+1)}`, matiere: code, desc: `Rattrapage — ${delay} séance${delay>1?"s":""} de retard à combler`, catchup: true, delay });
           cursor += 1;
-        }
-      });
-      slots = [...slots, ...catchups];
+        });
+        slots = [...slots, ...catchups];
+      }
     }
     return { type:"normal", slots };
   };
