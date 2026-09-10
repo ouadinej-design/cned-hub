@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { VACANCES, DEVOIRS, MATIERES, EMPLOI_SEMAINE, EMPLOI_BAC, isVacation, getVacationLabel, isBacPeriod, getDevoirsForDate, formatDate } from "../../data/cned-data";
+import { supabase } from "../../lib/supabase";
 
 const HOLIDAYS = ["2026-11-01","2026-11-11","2026-12-25","2027-01-01","2027-04-05","2027-05-01","2027-05-08","2027-05-14","2027-05-25"];
 const dayN = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
@@ -12,6 +13,18 @@ export default function PlanningPage() {
   const [absences, setAbsences] = useState(() => { try { return JSON.parse(localStorage.getItem("abs")||"{}"); } catch { return {}; } });
   const [activity, setActivity] = useState(() => { try { return JSON.parse(localStorage.getItem("activity_log")||"{}"); } catch { return {}; } });
   useEffect(() => { const iv = setInterval(() => { try { setActivity(JSON.parse(localStorage.getItem("activity_log")||"{}")); } catch {} }, 3000); return () => clearInterval(iv); }, []);
+  const [profConfig, setProfConfig] = useState({});
+  const [extras, setExtras] = useState({});
+  const [showReglages, setShowReglages] = useState(false);
+  const loadConfig = async () => {
+    const { data: pc } = await supabase.from("prof_config").select("*");
+    const pcMap = {}; (pc||[]).forEach(r => { pcMap[r.matiere] = r; });
+    setProfConfig(pcMap);
+    const { data: ex } = await supabase.from("planning_extra").select("*");
+    const exMap = {}; (ex||[]).forEach(r => { if(!exMap[r.event_date]) exMap[r.event_date]=[]; exMap[r.event_date].push(r); });
+    setExtras(exMap);
+  };
+  useEffect(() => { loadConfig(); }, []);
   const save = (s) => { setStored(s); try { localStorage.setItem("pl", JSON.stringify(s)); } catch {} };
   const saveAbs = (a) => { setAbsences(a); try { localStorage.setItem("abs", JSON.stringify(a)); } catch {} };
   const [wo, setWo] = useState(() => { const now = new Date(); const start = new Date(2026,8,7); return Math.max(0, Math.floor((now-start)/(7*86400000))); });
@@ -29,7 +42,20 @@ export default function PlanningPage() {
     if (isVacation(ds)) return { type:"vacation", label:getVacationLabel(ds) };
     if (HOLIDAYS.includes(ds)) return { type:"holiday" };
     if (isBacPeriod(ds)) { return dow===0?{type:"off"}:{type:"bac", slots:EMPLOI_BAC}; }
-    return { type:"normal", slots:EMPLOI_SEMAINE[dow]||[] };
+    // base template, minus hardcoded prof slots (replaced by dynamic prof_config)
+    let slots = (EMPLOI_SEMAINE[dow]||[]).filter(s => !s.prof);
+    // inject dynamic recurring prof sessions matching this day of week
+    Object.values(profConfig).forEach(pc => {
+      if (pc.jour === dow) {
+        slots = [{ time: `${pc.heure_debut}-${pc.heure_fin}`, matiere: pc.matiere, desc: `📚 PROF DE ${MATIERES[pc.matiere]?.nom?.toUpperCase()||pc.matiere} (${pc.heure_debut}-${pc.heure_fin})`, prof: true, tentative: pc.tentative }, ...slots];
+      }
+    });
+    // inject one-off extra sessions for this exact date
+    const dayExtras = extras[ds] || [];
+    dayExtras.forEach(ex => {
+      slots = [...slots, { time: `${ex.heure_debut}-${ex.heure_fin}`, matiere: ex.matiere, desc: ex.description, prof: ex.prof, extra: true }];
+    });
+    return { type:"normal", slots };
   };
   const hasActivity = (dateStr, matiere) => !!(activity[dateStr] && activity[dateStr][matiere]);
   const dayFullyDone = (date) => { const ds = formatDate(date); const sch = getSchedule(date); if (sch.type !== "normal" || !sch.slots) return false; const matieres = [...new Set(sch.slots.filter(s=>!s.prof).map(s=>s.matiere))]; return matieres.length>0 && matieres.every(m => hasActivity(ds, m)); };
@@ -163,13 +189,18 @@ export default function PlanningPage() {
   // --- WEEK VIEW ---
   return (
     <div style={{ background:"#0f172a", minHeight:"100vh", color:"#e2e8f0", fontFamily:"'Inter',system-ui,sans-serif", padding:"16px 16px 80px" }}>
-      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
-        <a href="/" style={{ fontSize:22, color:"#94a3b8", textDecoration:"none" }}>←</a>
-        <div>
-          <div style={{ fontSize:24, fontWeight:800 }}>📅 Planning</div>
-          <div style={{ fontSize:12, color:"#94a3b8" }}>Première 2026-2027 · {done} jours terminés</div>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <a href="/" style={{ fontSize:22, color:"#94a3b8", textDecoration:"none" }}>←</a>
+          <div>
+            <div style={{ fontSize:24, fontWeight:800 }}>📅 Planning</div>
+            <div style={{ fontSize:12, color:"#94a3b8" }}>Première 2026-2027 · {done} jours terminés</div>
+          </div>
         </div>
+        <button onClick={() => setShowReglages(true)} style={{ padding:"8px 10px", borderRadius:8, background:"#1e293b", border:"1px solid #334155", color:"#e2e8f0", cursor:"pointer", fontSize:16 }}>⚙️</button>
       </div>
+
+      {showReglages && <Reglages profConfig={profConfig} onClose={() => setShowReglages(false)} onSaved={loadConfig} />}
 
       <div style={{ background:"#1e293b", borderRadius:14, padding:14, marginBottom:14 }}>
         <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, marginBottom:6 }}><span>Semaine {wo+1}/{totalW}</span><span style={{ color:"#818cf8" }}>{Math.round((wo+1)/totalW*100)}%</span></div>
@@ -240,9 +271,138 @@ export default function PlanningPage() {
       </div>
 
       <div style={{ marginTop:16, padding:12, background:"rgba(251,191,36,.08)", borderRadius:10, border:"1px solid rgba(251,191,36,.3)" }}>
-        <div style={{ fontSize:12, fontWeight:700, color:"#fbbf24", marginBottom:4 }}>📚 Professeurs particuliers</div>
-        <div style={{ fontSize:11, color:"#fcd34d" }}>• Ven 8h-10h : Prof Français (confirmé)</div>
-        <div style={{ fontSize:11, color:"#fcd34d" }}>• Mar+Sam 9h-11h : Prof Maths (⚠️ à confirmer)</div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:"#fbbf24" }}>📚 Professeurs particuliers</div>
+          <span onClick={() => setShowReglages(true)} style={{ fontSize:11, color:"#fbbf24", cursor:"pointer", textDecoration:"underline" }}>modifier</span>
+        </div>
+        {Object.values(profConfig).map(pc => (
+          <div key={pc.matiere} style={{ fontSize:11, color:"#fcd34d" }}>• {DAY_NAMES_FULL[pc.jour]} {pc.heure_debut}-{pc.heure_fin} : Prof {MATIERES[pc.matiere]?.nom} {pc.tentative ? "(⚠️ à confirmer)" : "(confirmé)"}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const DAY_NAMES_FULL = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
+
+function Reglages({ profConfig, onClose, onSaved }) {
+  const [ma, setMa] = useState(() => profConfig.MA || { jour: 4, heure_debut: "10h", heure_fin: "12h", tentative: false });
+  const [fr, setFr] = useState(() => profConfig.FR || { jour: 5, heure_debut: "8h", heure_fin: "10h", tentative: false });
+  const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState("recurrent");
+  // extra session form
+  const [exDate, setExDate] = useState("");
+  const [exMatiere, setExMatiere] = useState("MA");
+  const [exDebut, setExDebut] = useState("14h");
+  const [exFin, setExFin] = useState("16h");
+  const [exDesc, setExDesc] = useState("Séance supplémentaire avec le prof");
+  const [exSaved, setExSaved] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    await supabase.from("prof_config").upsert([
+      { matiere: "MA", ...ma },
+      { matiere: "FR", ...fr },
+    ], { onConflict: "matiere" });
+    setSaving(false);
+    onSaved();
+    onClose();
+  };
+
+  const addExtra = async () => {
+    if (!exDate) return;
+    await supabase.from("planning_extra").insert({ event_date: exDate, matiere: exMatiere, heure_debut: exDebut, heure_fin: exFin, description: exDesc, prof: true });
+    setExSaved(true);
+    onSaved();
+    setTimeout(() => setExSaved(false), 1500);
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.6)", zIndex:50, display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ background:"#1e293b", borderRadius:"16px 16px 0 0", padding:20, width:"100%", maxWidth:480, maxHeight:"85vh", overflowY:"auto" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+          <div style={{ fontWeight:800, fontSize:16 }}>⚙️ Réglages planning</div>
+          <span onClick={onClose} style={{ cursor:"pointer", color:"#94a3b8", fontSize:20 }}>✕</span>
+        </div>
+
+        <div style={{ display:"flex", gap:6, marginBottom:16 }}>
+          <div onClick={() => setTab("recurrent")} style={{ flex:1, textAlign:"center", padding:"8px 0", borderRadius:8, background:tab==="recurrent"?"#6366f1":"#0f172a", color:tab==="recurrent"?"#fff":"#94a3b8", fontSize:12, fontWeight:600, cursor:"pointer" }}>Horaires fixes</div>
+          <div onClick={() => setTab("extra")} style={{ flex:1, textAlign:"center", padding:"8px 0", borderRadius:8, background:tab==="extra"?"#6366f1":"#0f172a", color:tab==="extra"?"#fff":"#94a3b8", fontSize:12, fontWeight:600, cursor:"pointer" }}>Séance ponctuelle</div>
+        </div>
+
+        {tab === "recurrent" && (<div>
+          <div style={{ fontSize:12, color:"#94a3b8", marginBottom:12 }}>Jour et horaire habituels de chaque professeur (répété chaque semaine).</div>
+
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:13, fontWeight:700, color:"#ec4899", marginBottom:8 }}>📐 Prof de Maths</div>
+            <div style={{ display:"flex", gap:6, marginBottom:8, flexWrap:"wrap" }}>
+              {DAY_NAMES_FULL.map((d,i) => (
+                <div key={i} onClick={() => setMa({...ma, jour:i})} style={{ padding:"6px 10px", borderRadius:8, fontSize:12, fontWeight:600, cursor:"pointer", background:ma.jour===i?"#ec4899":"#0f172a", color:ma.jour===i?"#fff":"#94a3b8" }}>{d}</div>
+              ))}
+            </div>
+            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+              <input value={ma.heure_debut} onChange={e=>setMa({...ma,heure_debut:e.target.value})} placeholder="10h" style={{ width:60, padding:8, borderRadius:8, border:"1px solid #334155", background:"#0f172a", color:"#e2e8f0", fontSize:13 }} />
+              <span style={{ color:"#94a3b8" }}>→</span>
+              <input value={ma.heure_fin} onChange={e=>setMa({...ma,heure_fin:e.target.value})} placeholder="12h" style={{ width:60, padding:8, borderRadius:8, border:"1px solid #334155", background:"#0f172a", color:"#e2e8f0", fontSize:13 }} />
+              <label style={{ display:"flex", alignItems:"center", gap:4, marginLeft:10, fontSize:12, color:"#94a3b8" }}>
+                <input type="checkbox" checked={!!ma.tentative} onChange={e=>setMa({...ma,tentative:e.target.checked})} /> à confirmer
+              </label>
+            </div>
+          </div>
+
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:13, fontWeight:700, color:"#3b82f6", marginBottom:8 }}>📖 Prof de Français</div>
+            <div style={{ display:"flex", gap:6, marginBottom:8, flexWrap:"wrap" }}>
+              {DAY_NAMES_FULL.map((d,i) => (
+                <div key={i} onClick={() => setFr({...fr, jour:i})} style={{ padding:"6px 10px", borderRadius:8, fontSize:12, fontWeight:600, cursor:"pointer", background:fr.jour===i?"#3b82f6":"#0f172a", color:fr.jour===i?"#fff":"#94a3b8" }}>{d}</div>
+              ))}
+            </div>
+            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+              <input value={fr.heure_debut} onChange={e=>setFr({...fr,heure_debut:e.target.value})} placeholder="8h" style={{ width:60, padding:8, borderRadius:8, border:"1px solid #334155", background:"#0f172a", color:"#e2e8f0", fontSize:13 }} />
+              <span style={{ color:"#94a3b8" }}>→</span>
+              <input value={fr.heure_fin} onChange={e=>setFr({...fr,heure_fin:e.target.value})} placeholder="10h" style={{ width:60, padding:8, borderRadius:8, border:"1px solid #334155", background:"#0f172a", color:"#e2e8f0", fontSize:13 }} />
+              <label style={{ display:"flex", alignItems:"center", gap:4, marginLeft:10, fontSize:12, color:"#94a3b8" }}>
+                <input type="checkbox" checked={!!fr.tentative} onChange={e=>setFr({...fr,tentative:e.target.checked})} /> à confirmer
+              </label>
+            </div>
+          </div>
+
+          <button onClick={save} disabled={saving} style={{ width:"100%", padding:12, borderRadius:10, border:"none", background:"#22c55e", color:"#fff", fontWeight:700, fontSize:14, cursor:"pointer" }}>{saving ? "Enregistrement..." : "✓ Enregistrer les horaires fixes"}</button>
+        </div>)}
+
+        {tab === "extra" && (<div>
+          <div style={{ fontSize:12, color:"#94a3b8", marginBottom:12 }}>
+            Ajoute une séance ponctuelle (ex: le prof rajoute une séance cette semaine) sans toucher au planning habituel des autres jours.
+          </div>
+          <div style={{ marginBottom:10 }}>
+            <div style={{ fontSize:12, color:"#94a3b8", marginBottom:4 }}>Date</div>
+            <input type="date" value={exDate} onChange={e=>setExDate(e.target.value)} style={{ width:"100%", padding:10, borderRadius:8, border:"1px solid #334155", background:"#0f172a", color:"#e2e8f0", fontSize:13, boxSizing:"border-box" }} />
+          </div>
+          <div style={{ marginBottom:10 }}>
+            <div style={{ fontSize:12, color:"#94a3b8", marginBottom:4 }}>Matière</div>
+            <div style={{ display:"flex", gap:6 }}>
+              {["MA","FR"].map(m => (
+                <div key={m} onClick={() => setExMatiere(m)} style={{ flex:1, textAlign:"center", padding:8, borderRadius:8, fontSize:12, fontWeight:600, cursor:"pointer", background:exMatiere===m?(m==="MA"?"#ec4899":"#3b82f6"):"#0f172a", color:exMatiere===m?"#fff":"#94a3b8" }}>{MATIERES[m]?.nom}</div>
+              ))}
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:12, color:"#94a3b8", marginBottom:4 }}>Début</div>
+              <input value={exDebut} onChange={e=>setExDebut(e.target.value)} style={{ width:"100%", padding:10, borderRadius:8, border:"1px solid #334155", background:"#0f172a", color:"#e2e8f0", fontSize:13, boxSizing:"border-box" }} />
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:12, color:"#94a3b8", marginBottom:4 }}>Fin</div>
+              <input value={exFin} onChange={e=>setExFin(e.target.value)} style={{ width:"100%", padding:10, borderRadius:8, border:"1px solid #334155", background:"#0f172a", color:"#e2e8f0", fontSize:13, boxSizing:"border-box" }} />
+            </div>
+          </div>
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontSize:12, color:"#94a3b8", marginBottom:4 }}>Description</div>
+            <input value={exDesc} onChange={e=>setExDesc(e.target.value)} style={{ width:"100%", padding:10, borderRadius:8, border:"1px solid #334155", background:"#0f172a", color:"#e2e8f0", fontSize:13, boxSizing:"border-box" }} />
+          </div>
+          <button onClick={addExtra} style={{ width:"100%", padding:12, borderRadius:10, border:"none", background:exSaved?"#22c55e":"#6366f1", color:"#fff", fontWeight:700, fontSize:14, cursor:"pointer" }}>{exSaved ? "✓ Ajoutée !" : "+ Ajouter la séance"}</button>
+          <div style={{ fontSize:11, color:"#64748b", marginTop:10, fontStyle:"italic" }}>Cette séance s'ajoute au planning de ce jour précis, en plus du reste — elle ne décale pas les autres matières de la semaine.</div>
+        </div>)}
       </div>
     </div>
   );
