@@ -1,5 +1,22 @@
 "use client";
-import { REGLES, DATES_CLES, SEMESTRES } from "../../data/cned-data";
+import { REGLES, DATES_CLES } from "../data/cned-data";
+
+const EPREUVES_TERMINALES = [
+  "Français écrit + oral (fin de Première)",
+  "Mathématiques — épreuve anticipée (fin de Première)",
+  "2 épreuves de spécialité (fin de Terminale)",
+  "Grand oral (fin de Terminale)",
+  "Philosophie (fin de Terminale)",
+];
+const CC_OBLIGATOIRE = [
+  "Histoire-Géographie", "Langue vivante A (Anglais)", "Langue vivante B (Espagnol)",
+  "Mathématiques spécifiques (1re, si pas de spé Maths)", "Enseignement scientifique", "EMC",
+  "Spécialité de Première non poursuivie en Terminale",
+];
+const CC_OPTIONNEL = [
+  "Langue vivante C", "Maths complémentaires / expertes", "Langues et cultures de l'Antiquité",
+  "Droit et grands enjeux du monde contemporain", "Arts",
+];
 
 export default function ReglesPage() {
   return (
@@ -8,7 +25,7 @@ export default function ReglesPage() {
         <a href="/" style={{ fontSize:22, color:"#94a3b8", textDecoration:"none" }}>←</a>
         <div>
           <div style={{ fontSize:24, fontWeight:800 }}>⚠️ Règles CNED</div>
-          <div style={{ fontSize:12, color:"#94a3b8" }}>Contrôle continu — Éligibilité bac</div>
+          <div style={{ fontSize:12, color:"#94a3b8" }}>Projet d'évaluation Bac — Session 2027</div>
         </div>
       </div>
 
@@ -26,14 +43,59 @@ export default function ReglesPage() {
         ))}
       </div>
 
-      <div style={{ background:"#1e293b", borderRadius:14, padding:16, marginBottom:16 }}>
-        <div style={{ fontWeight:700, fontSize:16, color:"#60a5fa", marginBottom:8 }}>ℹ️ Informations</div>
-        {REGLES.filter(r=>r.type==="info").map((r,i) => (
-          <div key={i} style={{ padding:10, marginBottom:6, background:"rgba(59,130,246,.08)", borderRadius:8, fontSize:13, color:"#93c5fd", borderLeft:"3px solid #3b82f6" }}>{r.text}</div>
-        ))}
+      <div style={{ background:"rgba(168,85,247,.08)", borderRadius:14, padding:16, marginBottom:16, border:"1px solid rgba(168,85,247,.3)" }}>
+        <div style={{ fontWeight:700, fontSize:16, color:"#c084fc", marginBottom:8 }}>🎲 Évaluations aléatoires de contrôle</div>
+        <div style={{ fontSize:13, color:"#e9d5ff", lineHeight:1.6 }}>
+          Pour lutter contre la fraude, ton fils peut être <strong>convoqué de manière totalement aléatoire</strong> à une évaluation surveillée à distance, sur des séquences déjà travaillées.
+        </div>
+        <ul style={{ fontSize:12, color:"#e9d5ff", marginTop:8, paddingLeft:18, lineHeight:1.8 }}>
+          <li>Convocation minimum <strong>3 semaines</strong> avant l'épreuve</li>
+          <li>Passation <strong>obligatoire</strong></li>
+          <li>Absence non justifiée = <strong>note de 0</strong></li>
+          <li>Si la nouvelle note est nettement inférieure à la note initiale → convocations complémentaires possibles, voire sanction pour fraude en cas d'écarts répétés</li>
+        </ul>
+        <div style={{ fontSize:11, color:"#c4b5fd", marginTop:8, fontStyle:"italic" }}>→ Bon réflexe : garder les cours à jour dans sa tête, pas seulement les devoirs rendus.</div>
       </div>
 
-      <div style={{ background:"#1e293b", borderRadius:14, padding:16 }}>
+      <div style={{ background:"#1e293b", borderRadius:14, padding:16, marginBottom:16 }}>
+        <div style={{ fontWeight:700, fontSize:16, marginBottom:10 }}>📋 Les 5 règles du contrôle continu</div>
+        {[
+          ["Assiduité", "Temps régulier consacré aux contenus et exercices en ligne."],
+          ["Travail régulier", "Nombre de devoirs équilibré sur les 2 semestres."],
+          ["Suivi de la progression", "Chaque devoir fait dans l'ordre prévu par la progression."],
+          ["Évaluations obligatoires", "Tous les devoirs du semestre doivent être rendus, sans omission."],
+          ["Rythme à respecter", "14 jours minimum entre 2 devoirs corrigés d'une même matière."],
+        ].map(([t,d],i) => (
+          <div key={i} style={{ display:"flex", gap:10, padding:"8px 0", borderBottom:i<4?"1px solid #334155":"none" }}>
+            <div style={{ minWidth:22, color:"#818cf8", fontWeight:700 }}>{i+1}.</div>
+            <div>
+              <div style={{ fontWeight:600, fontSize:13 }}>{t}</div>
+              <div style={{ fontSize:12, color:"#94a3b8" }}>{d}</div>
+            </div>
+          </div>
+        ))}
+        <div style={{ marginTop:10, padding:10, background:"rgba(239,68,68,.08)", borderRadius:8, fontSize:12, color:"#fca5a5" }}>
+          ⚠️ Une moyenne semestrielle nécessite <strong>plusieurs notes</strong> : une seule note dans une matière ne suffit pas à établir une moyenne valable.
+        </div>
+      </div>
+
+      <div style={{ background:"#1e293b", borderRadius:14, padding:16, marginBottom:16 }}>
+        <div style={{ fontWeight:700, fontSize:16, marginBottom:10 }}>🎯 Répartition des matières (Bac 40/60)</div>
+        <div style={{ fontSize:12, fontWeight:700, color:"#f87171", marginBottom:6 }}>Épreuves terminales (60%)</div>
+        {EPREUVES_TERMINALES.map((m,i) => <div key={i} style={{ fontSize:12, color:"#fca5a5", padding:"3px 0" }}>• {m}</div>)}
+        <div style={{ fontSize:12, fontWeight:700, color:"#818cf8", marginTop:12, marginBottom:6 }}>Contrôle continu obligatoire (40%)</div>
+        {CC_OBLIGATOIRE.map((m,i) => <div key={i} style={{ fontSize:12, color:"#c7d2fe", padding:"3px 0" }}>• {m}</div>)}
+        <div style={{ fontSize:12, fontWeight:700, color:"#94a3b8", marginTop:12, marginBottom:6 }}>Contrôle continu — options</div>
+        {CC_OPTIONNEL.map((m,i) => <div key={i} style={{ fontSize:12, color:"#cbd5e1", padding:"3px 0" }}>• {m}</div>)}
+        <div style={{ marginTop:10, fontSize:11, color:"#94a3b8", fontStyle:"italic" }}>EPS : examen ponctuel en fin de Terminale (remplace le contrôle continu).</div>
+      </div>
+
+      <div style={{ background:"rgba(239,68,68,.08)", borderRadius:14, padding:16, marginBottom:16, border:"1px solid rgba(239,68,68,.3)" }}>
+        <div style={{ fontWeight:700, fontSize:14, color:"#fca5a5", marginBottom:6 }}>🚫 Fraude / plagiat</div>
+        <div style={{ fontSize:12, color:"#fca5a5" }}>Plagiat intégral prouvé → <strong>0/20</strong> + rapport rédigé par le correcteur. Fraude partielle → seule la production personnelle est évaluée.</div>
+      </div>
+
+      <div style={{ background:"#1e293b", borderRadius:14, padding:16, marginBottom:16 }}>
         <div style={{ fontWeight:700, fontSize:16, marginBottom:12 }}>📅 Dates clés de l'année</div>
         {DATES_CLES.map((d,i) => (
           <div key={i} style={{ display:"flex", gap:10, padding:"10px 0", borderBottom:i<DATES_CLES.length-1?"1px solid #334155":"none" }}>
@@ -45,6 +107,11 @@ export default function ReglesPage() {
           </div>
         ))}
       </div>
+
+      <a href="https://modules.cned.fr/Actito/DAPN/Rennes/PROJET_EVALUATION_BACCALAUREAT_SESSION_2027.pdf" target="_blank" rel="noopener noreferrer"
+        style={{ display:"block", textAlign:"center", padding:12, borderRadius:10, background:"#1e293b", border:"1px solid #334155", color:"#818cf8", textDecoration:"none", fontSize:12, fontWeight:600 }}>
+        📄 Voir le document officiel CNED (PDF)
+      </a>
     </div>
   );
 }
