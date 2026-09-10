@@ -1,36 +1,40 @@
 "use client";
 import { useState, useCallback, useRef, useEffect } from "react";
+import { supabase } from "../../../lib/supabase";
 
 function logActivity(matiere) {
+  const today = new Date().toISOString().split("T")[0];
   try {
-    const today = new Date().toISOString().split("T")[0];
     const log = JSON.parse(localStorage.getItem("activity_log") || "{}");
     if (!log[today]) log[today] = {};
     log[today][matiere] = Date.now();
     localStorage.setItem("activity_log", JSON.stringify(log));
   } catch {}
+  supabase.from("activity_log").upsert({ event_date: today, matiere, ts: Date.now() }, { onConflict: "event_date,matiere" }).then(() => {}, () => {});
 }
 
 function logDifficulty(matiereFull, seance, question, userAnswer, correctAnswer, hint) {
+  const today = new Date().toISOString().split("T")[0];
   try {
-    const today = new Date().toISOString().split("T")[0];
     const log = JSON.parse(localStorage.getItem("difficulties_log") || "{}");
     if (!log[today]) log[today] = {};
     if (!log[today][matiereFull]) log[today][matiereFull] = [];
     log[today][matiereFull].push({ type: "exercice", seance, question, userAnswer, correctAnswer, hint, ts: Date.now() });
     localStorage.setItem("difficulties_log", JSON.stringify(log));
   } catch {}
+  supabase.from("difficulties_log").insert({ event_date: today, matiere: matiereFull, type: "exercice", seance, question, user_answer: userAnswer, correct_answer: correctAnswer, hint, ts: Date.now() }).then(() => {}, () => {});
 }
 
 function logQuizResult(matiereFull, seance, score, total, wrongQuestions) {
+  const today = new Date().toISOString().split("T")[0];
   try {
-    const today = new Date().toISOString().split("T")[0];
     const log = JSON.parse(localStorage.getItem("difficulties_log") || "{}");
     if (!log[today]) log[today] = {};
     if (!log[today][matiereFull]) log[today][matiereFull] = [];
     log[today][matiereFull].push({ type: "quiz", seance, score, total, wrongQuestions, ts: Date.now() });
     localStorage.setItem("difficulties_log", JSON.stringify(log));
   } catch {}
+  supabase.from("difficulties_log").insert({ event_date: today, matiere: matiereFull, type: "quiz", seance, score, total, wrong_questions: wrongQuestions, ts: Date.now() }).then(() => {}, () => {});
 }
 
 const SEANCES = [
