@@ -4,9 +4,11 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function POST(request) {
   try {
-    const { type, question, reponse, section, cours, matiere } = await request.json();
+    const { type, question, reponse, section, cours, matiere, exercices } = await request.json();
 
     let systemPrompt = "";
+    let maxTokens = 400;
+    let userContent = reponse || question;
 
     if (type === "correction") {
       systemPrompt = `Tu es un professeur de ${matiere || "Français"} strict mais bienveillant pour un élève de Première CNED.
@@ -28,16 +30,55 @@ Note sur /20. Détaille les points forts et les points faibles.
 Donne des conseils concrets d'amélioration.
 Pour le français : vérifie la méthode (3P pour l'intro, O-C-E dans le développement, transitions, conclusion avec ouverture).
 Pour les maths : vérifie la rigueur du raisonnement, la justification des étapes, le calcul.`;
+    } else if (type === "reexplique") {
+      // Pas de prof particulier dans cette matière : l'IA réexplique autrement + fournit un nouvel exercice
+      maxTokens = 700;
+      systemPrompt = `Tu es un professeur de ${matiere || ""} pour un élève de Première CNED, sans professeur particulier disponible dans cette matière — tu dois donc être son seul recours pour comprendre.
+Contexte du cours : "${cours || ""}". Séance : "${section || ""}".
+L'élève a été bloqué sur cet exercice :
+Question : "${question}"
+Sa réponse : "${reponse}"
+Réponse attendue : correcte selon le corrigé du cours.
+
+Réponds UNIQUEMENT avec un objet JSON valide, sans texte avant/après, sans balises markdown, au format exact :
+{"explication": "une explication de la notion, avec un ANGLE DIFFÉRENT de celui du cours (autre exemple, autre analogie, autre méthode de mémorisation), en 4-6 phrases, ton pédagogique et encourageant", "nouvel_exercice": {"question": "un nouvel exercice sur EXACTEMENT la même notion mais avec un énoncé différent", "reponse": "la réponse attendue à ce nouvel exercice", "indice": "un indice court pour ce nouvel exercice"}}`;
+      userContent = "Réexplique-moi cette notion autrement et donne-moi un nouvel exercice pour m'entraîner.";
+    } else if (type === "analyse_difficultes") {
+      // Analyse précise des difficultés accumulées pour préparer une séance avec le prof
+      maxTokens = 900;
+      systemPrompt = `Tu es un professeur de ${matiere || ""} qui prépare un point d'étape précis à destination d'un autre professeur particulier qui va donner une séance avec l'élève.
+Voici la liste des erreurs et résultats de quiz de l'élève sur la période récente, au format JSON :
+${JSON.stringify(exercices || [])}
+
+Rédige une ANALYSE PÉDAGOGIQUE PRÉCISE (pas de généralités, pas juste "difficulté sur X") :
+- Identifie les notions précises qui posent problème, en citant les erreurs concrètes observées (ex: "confond la formule du discriminant Δ=b²-4ac avec celle des racines")
+- Explique le TYPE d'erreur (erreur de méthode, de calcul, de compréhension conceptuelle, d'inattention...)
+- Si un pattern se répète sur plusieurs exercices, signale-le explicitement
+- Propose 1-2 pistes concrètes de travail pour la séance
+- Reste factuel, base-toi uniquement sur les données fournies, sans inventer
+- Rédige en français, format texte simple (pas de markdown), 150-250 mots, à la 3e personne ("l'élève...")
+Si la liste est vide, réponds juste "Aucune difficulté notable enregistrée sur cette période."`;
+      userContent = "Analyse ces difficultés.";
     }
 
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: type === "bac_blanc" ? 800 : 400,
+      max_tokens: maxTokens,
       system: systemPrompt,
-      messages: [{ role: "user", content: reponse || question }],
+      messages: [{ role: "user", content: userContent }],
     });
 
     const reply = message.content.map((b) => b.text || "").join("");
+
+    if (type === "reexplique") {
+      try {
+        const cleaned = reply.replace(/```json|```/g, "").trim();
+        const parsed = JSON.parse(cleaned);
+        return Response.json({ success: true, ...parsed });
+      } catch {
+        return Response.json({ success: false, explication: reply, nouvel_exercice: null });
+      }
+    }
 
     return Response.json({ success: true, reply });
   } catch (error) {

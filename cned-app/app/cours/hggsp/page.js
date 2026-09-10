@@ -251,8 +251,25 @@ function Exos({ s, mark }) {
   const [ans, setAns] = useState({});
   const [res, setRes] = useState({});
   const [fl, setFl] = useState(0);
-  const exs = fl===0 ? s.exercises : s.exercises.filter(e => e.level===fl);
+  const [extraExs, setExtraExs] = useState([]);
+  const [reexp, setReexp] = useState({}); // gi -> {loading, explication, nouvel_exercice}
+  const allExercises = [...s.exercises, ...extraExs];
+  const exs = fl===0 ? allExercises : allExercises.filter(e => e.level===fl);
   useEffect(() => { if (Object.keys(res).length >= s.exercises.length) mark(s.id, "exercises"); }, [res]);
+  const demanderReexplication = async (gi, ex) => {
+    setReexp(r => ({...r, [gi]: { loading: true }}));
+    try {
+      const r = await fetch("/api/ai/corriger", { method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ type:"reexplique", matiere:"HGGSP", section:s.title, cours:ex.q, question:ex.q, reponse:ans[gi]||"" }) });
+      const d = await r.json();
+      setReexp(rr => ({...rr, [gi]: { loading:false, explication: d.explication, nouvel_exercice: d.nouvel_exercice }}));
+      if (d.nouvel_exercice) {
+        setExtraExs(ee => [...ee, { q: d.nouvel_exercice.question, answer: d.nouvel_exercice.reponse, hint: d.nouvel_exercice.indice, level: ex.level }]);
+      }
+    } catch {
+      setReexp(rr => ({...rr, [gi]: { loading:false, explication:"Erreur de connexion, réessaie.", nouvel_exercice:null }}));
+    }
+  };
   return (<div>
     <div style={{ display:"flex", gap:6, marginBottom:16 }}>
       {[0,1,2,3].map(l => <div key={l} onClick={() => setFl(l)} style={{ padding:"6px 14px", borderRadius:20, fontSize:12, fontWeight:600, cursor:"pointer", background:fl===l?(l===0?"#f59e0b":LEVELS[l]?.c):"#1e293b", color:fl===l?"#fff":"#94a3b8" }}>{l===0?"Tous":LEVELS[l].label}</div>)}
@@ -270,8 +287,15 @@ function Exos({ s, mark }) {
           <button onClick={() => { const a=(ans[gi]||"").toLowerCase().replace(/\s/g,""); const c=ex.answer.toLowerCase().replace(/\s/g,""); const ok=a===c||a.includes(c)||c.includes(a); setRes({...res,[gi]:ok}); if(!ok) logDifficulty("HGGSP", s.title, ex.q, ans[gi]||"(vide)", ex.answer, ex.hint); }}
             style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#f59e0b", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Vérifier</button>
           {r===false && <button onClick={() => alert("💡 "+ex.hint)} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#d97706", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Indice</button>}
-        </div>
-        {r===false && <div style={{ marginTop:8, padding:10, background:"rgba(239,68,68,.1)", borderRadius:8, fontSize:13, color:"#fca5a5" }}>Réponse : {ex.answer}</div>}
+        {r===false && <button onClick={() => demanderReexplication(gi, ex)} disabled={reexp[gi]?.loading} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#8b5cf6", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>{reexp[gi]?.loading ? "..." : "🔄 Autre explication"}</button>}
+        </div>{r===false && <div style={{ marginTop:8, padding:10, background:"rgba(239,68,68,.1)", borderRadius:8, fontSize:13, color:"#fca5a5" }}>Réponse : {ex.answer}</div>}
+        {reexp[gi] && !reexp[gi].loading && reexp[gi].explication && (
+          <div style={{ marginTop:8, padding:12, background:"rgba(139,92,246,.1)", borderRadius:8, borderLeft:"3px solid #8b5cf6" }}>
+            <div style={{ fontSize:11, fontWeight:700, color:"#c4b5fd", marginBottom:4 }}>🔄 Vu autrement</div>
+            <div style={{ fontSize:13, color:"#e2e8f0", lineHeight:1.6, whiteSpace:"pre-wrap" }}>{reexp[gi].explication}</div>
+            {reexp[gi].nouvel_exercice && <div style={{ fontSize:11, color:"#a78bfa", marginTop:6, fontStyle:"italic" }}>✓ Un nouvel exercice sur cette notion a été ajouté plus bas pour t'entraîner.</div>}
+          </div>
+        )}
       </div>
     ); })}
     <AiChat ctx={`Exercices Séance ${s.id}: ${s.title}`} txt={s.exercises.map(e=>e.q).join("\n")} />

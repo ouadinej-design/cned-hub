@@ -155,14 +155,30 @@ function PrepSeance() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [fetched, setFetched] = useState(false);
+  const [analyse, setAnalyse] = useState("");
+  const [analysing, setAnalysing] = useState(false);
 
   const fetchData = async () => {
-    setLoading(true); setFetched(true);
+    setLoading(true); setFetched(true); setAnalyse("");
     const since = new Date(); since.setDate(since.getDate() - days);
     const sinceStr = isoDate(since);
     const { data } = await supabase.from("difficulties_log").select("*").eq("matiere", matiere).gte("event_date", sinceStr).order("ts", { ascending: true });
-    setRows(data || []);
+    const rowsData = data || [];
+    setRows(rowsData);
     setLoading(false);
+    if (rowsData.length > 0) {
+      setAnalysing(true);
+      try {
+        const r = await fetch("/api/ai/corriger", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "analyse_difficultes", matiere, exercices: rowsData.map(row => ({
+            type: row.type, seance: row.seance, question: row.question, reponse_eleve: row.user_answer, reponse_attendue: row.correct_answer,
+            score: row.score, total: row.total, questions_ratees: row.wrong_questions
+          })) }) });
+        const d = await r.json();
+        setAnalyse(d.reply || "");
+      } catch { setAnalyse(""); }
+      setAnalysing(false);
+    }
   };
 
   const quizzes = rows.filter(r => r.type === "quiz");
@@ -173,27 +189,25 @@ function PrepSeance() {
   const weakSeances = Object.entries(seanceCount).sort((a, b) => b[1] - a[1]);
 
   const buildMessage = () => {
-    let txt = `Bonjour,\n\nAvant la prochaine séance de ${matiere}, voici les points sur lesquels mon fils a rencontré des difficultés ces ${days} derniers jours, pour préparer la séance :\n\n`;
+    let txt = `Bonjour,\n\nAvant la prochaine séance de ${matiere}, voici un point précis sur le travail de mon fils ces ${days} derniers jours :\n\n`;
     if (rows.length === 0) {
       txt += "Pas de difficulté particulière détectée récemment — RAS.\n";
     } else {
-      if (weakSeances.length > 0) {
-        txt += `📌 Notions à retravailler en priorité :\n`;
-        weakSeances.forEach(([s, c]) => txt += `  • ${s} (${c} erreur${c > 1 ? "s" : ""})\n`);
-        txt += `\n`;
+      if (analyse) {
+        txt += `${analyse}\n\n`;
       }
+      txt += `─── Détail brut ───\n`;
       if (exos.length > 0) {
-        txt += `Détail des erreurs sur les exercices :\n`;
-        exos.forEach(e => { txt += `\n• [${e.seance}] ${e.question}\n  → Il a répondu : "${e.user_answer}" au lieu de "${e.correct_answer}"\n`; });
+        exos.forEach(e => { txt += `\n• [${e.seance}] ${e.question}\n  → Réponse donnée : "${e.user_answer}"\n  → Réponse attendue : "${e.correct_answer}"\n`; });
         txt += `\n`;
       }
       if (quizzes.length > 0) {
-        txt += `Résultats aux quiz :\n`;
+        txt += `Quiz :\n`;
         quizzes.forEach(q => { txt += `  • "${q.seance}" : ${q.score}/${q.total}\n`; (q.wrong_questions || []).forEach(w => txt += `     ✗ ${w}\n`); });
         txt += `\n`;
       }
     }
-    txt += `Merci d'avance de vous concentrer sur ces points bloqués pendant la séance.\n\nCordialement`;
+    txt += `Merci d'avance de vous concentrer sur ces points pendant la séance.\n\nCordialement`;
     return txt;
   };
 
@@ -220,18 +234,15 @@ function PrepSeance() {
     {fetched && !loading && (
       <>
         <div style={{ background: "#1e293b", borderRadius: 14, padding: 16, marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10, color: MATIERE_COLORS[matiere] }}>Aperçu du message</div>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10, color: MATIERE_COLORS[matiere] }}>Analyse précise</div>
           {rows.length === 0 ? (
             <div style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic" }}>Aucune difficulté enregistrée en {matiere} sur les {days} derniers jours. Rien à signaler au prof pour l'instant.</div>
+          ) : analysing ? (
+            <div style={{ fontSize: 13, color: "#94a3b8" }}>Analyse en cours...</div>
           ) : (
             <>
-              {weakSeances.length > 0 && (
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#fbbf24", marginBottom: 4 }}>📌 Notions à retravailler</div>
-                  {weakSeances.map(([s, c], i) => <div key={i} style={{ fontSize: 12, color: "#fcd34d" }}>• {s} ({c} erreur{c > 1 ? "s" : ""})</div>)}
-                </div>
-              )}
-              <div style={{ fontSize: 12, color: "#94a3b8" }}>{exos.length} exercice(s) raté(s) · {quizzes.length} quiz réalisé(s)</div>
+              {analyse && <div style={{ fontSize: 13, color: "#e2e8f0", lineHeight: 1.7, whiteSpace: "pre-wrap", marginBottom: 12 }}>{analyse}</div>}
+              <div style={{ fontSize: 11, color: "#64748b" }}>{exos.length} exercice(s) raté(s) · {quizzes.length} quiz réalisé(s)</div>
             </>
           )}
         </div>
