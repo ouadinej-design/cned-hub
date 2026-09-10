@@ -32,13 +32,15 @@ function formatTimeDecimal(h) {
 }
 
 export default function PlanningPage() {
-  const [stored, setStored] = useState(() => { try { return JSON.parse(localStorage.getItem("pl")||"{}"); } catch { return {}; } });
-  const [absences, setAbsences] = useState(() => { try { return JSON.parse(localStorage.getItem("abs")||"{}"); } catch { return {}; } });
-  const [activity, setActivity] = useState(() => { try { return JSON.parse(localStorage.getItem("activity_log")||"{}"); } catch { return {}; } });
-  useEffect(() => { const iv = setInterval(() => { try { setActivity(JSON.parse(localStorage.getItem("activity_log")||"{}")); } catch {} }, 3000); return () => clearInterval(iv); }, []);
+  // --- Toutes les données de progression sont centralisées sur Supabase (visible depuis tout appareil : père ou fils) ---
+  const [stored, setStoredState] = useState({}); // clé "date__matiere__heure" -> true (coché manuellement)
+  const [absences, setAbsences] = useState({}); // clé "date" -> true
+  const [activity, setActivity] = useState({}); // {date: {matiere: true}} (coché automatiquement via activité de cours)
+  const [reasons, setReasons] = useState({}); // clé "date__matiere__heure" -> texte du motif
   const [profConfig, setProfConfig] = useState({});
   const [extras, setExtras] = useState({});
   const [showReglages, setShowReglages] = useState(false);
+
   const loadConfig = async () => {
     const { data: pc } = await supabase.from("prof_config").select("*");
     const pcMap = {}; (pc||[]).forEach(r => { pcMap[r.matiere] = r; });
@@ -47,9 +49,43 @@ export default function PlanningPage() {
     const exMap = {}; (ex||[]).forEach(r => { if(!exMap[r.event_date]) exMap[r.event_date]=[]; exMap[r.event_date].push(r); });
     setExtras(exMap);
   };
-  useEffect(() => { loadConfig(); }, []);
-  const save = (s) => { setStored(s); try { localStorage.setItem("pl", JSON.stringify(s)); } catch {} };
-  const saveAbs = (a) => { setAbsences(a); try { localStorage.setItem("abs", JSON.stringify(a)); } catch {} };
+  const loadActivity = async () => {
+    const { data } = await supabase.from("activity_log").select("event_date,matiere");
+    const map = {}; (data||[]).forEach(r => { if(!map[r.event_date]) map[r.event_date]={}; map[r.event_date][r.matiere]=true; });
+    setActivity(map);
+  };
+  const loadSlotDone = async () => {
+    const { data } = await supabase.from("slot_done").select("event_date,matiere,slot_time,done");
+    const map = {}; (data||[]).forEach(r => { if(r.done) map[`${r.event_date}__${r.matiere}__${r.slot_time}`] = true; });
+    setStoredState(map);
+  };
+  const loadAbsences = async () => {
+    const { data } = await supabase.from("absences_log").select("event_date");
+    const map = {}; (data||[]).forEach(r => { map[r.event_date] = true; });
+    setAbsences(map);
+  };
+  const loadReasons = async () => {
+    const { data } = await supabase.from("reasons_log").select("event_date,matiere,slot_time,reason");
+    const map = {}; (data||[]).forEach(r => { map[`${r.event_date}__${r.matiere}__${r.slot_time}`] = r.reason; });
+    setReasons(map);
+  };
+  useEffect(() => {
+    loadConfig(); loadActivity(); loadSlotDone(); loadAbsences(); loadReasons();
+    const iv = setInterval(() => { loadActivity(); loadSlotDone(); }, 8000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const toggleSlot = async (ds, matiere, time, current) => {
+    const key = `${ds}__${matiere}__${time}`;
+    setStoredState(s => { const n = { ...s }; if (!current) n[key] = true; else delete n[key]; return n; });
+    await supabase.from("slot_done").upsert({ event_date: ds, matiere, slot_time: time, done: !current, ts: Date.now() }, { onConflict: "event_date,matiere,slot_time" });
+  };
+  const saveReasonFor = async (ds, matiere, time, reason) => {
+    const key = `${ds}__${matiere}__${time}`;
+    setReasons(r => ({ ...r, [key]: reason }));
+    await supabase.from("reasons_log").upsert({ event_date: ds, matiere, slot_time: time, reason, ts: Date.now() }, { onConflict: "event_date,matiere,slot_time" });
+  };
+
   const [wo, setWo] = useState(() => { const now = new Date(); const start = new Date(2026,8,7); return Math.max(0, Math.floor((now-start)/(7*86400000))); });
   const [sel, setSel] = useState(null);
   const [showRattrapage, setShowRattrapage] = useState(false);
@@ -58,7 +94,31 @@ export default function PlanningPage() {
   const ws = new Date(startDate); ws.setDate(ws.getDate()+wo*7);
   const days = []; for (let i=0;i<7;i++) { const d=new Date(ws); d.setDate(d.getDate()+i); days.push(d); }
   const wLabel = `${days[0].getDate()} ${months[days[0].getMonth()]} — ${days[6].getDate()} ${months[days[6].getMonth()]}`;
-  const totalW = 42; const done = Object.keys(stored).filter(k=>stored[k]).length;
+  const totalW = 42; const done = Object.keys(stored).length;
+
+  // Retard cumulé par matière depuis le début de l'année, en nombre de séances non faites (hors vacances/absences excusées)
+  const computeDelay = (matiereCode) => {
+    let expected = 0;
+    const doneSet = new Set();
+    Object.entries(activity).forEach(([d, ms]) => Object.keys(ms).forEach(m => doneSet.add(`${d}__${m}`)));
+    Object.keys(stored).forEach(k => { const parts = k.split("__"); doneSet.add(`${parts[0]}__${parts[1]}`); });
+    const cur = new Date(2026, 8, 7);
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); yesterday.setHours(0,0,0,0);
+    let doneCount = 0;
+    while (cur <= yesterday) {
+      const ds = formatDate(cur);
+      const dow = cur.getDay();
+      if (!isVacation(ds) && !HOLIDAYS.includes(ds) && !isBacPeriod(ds) && !absences[ds]) {
+        const daySlots = EMPLOI_SEMAINE[dow] || [];
+        if (daySlots.some(s => s.matiere === matiereCode && !s.prof)) {
+          expected += 1;
+          if (doneSet.has(`${ds}__${matiereCode}`)) doneCount += 1;
+        }
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    return Math.max(0, expected - doneCount);
+  };
 
   const getSchedule = (date) => {
     const ds = formatDate(date); const dow = date.getDay();
@@ -103,6 +163,20 @@ export default function PlanningPage() {
     });
     // sort by start time so the day reads chronologically after overlap removal
     slots = slots.slice().sort((a, b) => parseTimeRange(a.time)[0] - parseTimeRange(b.time)[0]);
+    // Recalcul automatique : si aujourd'hui, on ajoute les matières en retard (non vues depuis le début de l'année) en fin de journée
+    if (ds === formatDate(new Date())) {
+      const already = new Set(slots.map(s => s.matiere));
+      let cursor = 20;
+      const catchups = [];
+      ["FR","MA","SE","HG","HI","AN","ES","SC","EM"].forEach(code => {
+        const delay = computeDelay(code);
+        if (delay > 0) {
+          catchups.push({ time: `${formatTimeDecimal(cursor)}-${formatTimeDecimal(cursor+1)}`, matiere: code, desc: `Rattrapage — ${delay} séance${delay>1?"s":""} de retard à combler`, catchup: true, delay });
+          cursor += 1;
+        }
+      });
+      slots = [...slots, ...catchups];
+    }
     return { type:"normal", slots };
   };
   const hasActivity = (dateStr, matiere) => !!(activity[dateStr] && activity[dateStr][matiere]);
@@ -144,11 +218,15 @@ export default function PlanningPage() {
     return missed.slice(start, start + perDay);
   };
 
-  const toggleAbsence = (date) => {
+  const toggleAbsence = async (date) => {
     const ds = formatDate(date);
-    const n = { ...absences };
-    if (n[ds]) { delete n[ds]; } else { n[ds] = true; delete stored[ds]; save({...stored}); }
-    saveAbs(n);
+    if (absences[ds]) {
+      setAbsences(a => { const n = {...a}; delete n[ds]; return n; });
+      await supabase.from("absences_log").delete().eq("event_date", ds);
+    } else {
+      setAbsences(a => ({...a, [ds]: true}));
+      await supabase.from("absences_log").upsert({ event_date: ds, ts: Date.now() });
+    }
   };
 
   const weekDvs = DEVOIRS.filter(d => { const dd=d.deadline; return dd>=formatDate(days[0]) && dd<=formatDate(days[6]); });
@@ -195,12 +273,12 @@ export default function PlanningPage() {
           const cursHref = {FR:"/cours/francais",MA:"/cours/maths",SE:"/cours/ses",HG:"/cours/hggsp",HI:"/cours/histgeo",EM:"/cours/emc",SC:"/cours/enssci",AN:"/cours/anglais",ES:"/cours/espagnol"}[s.matiere];
           return (
             <div key={i} style={{ display:"flex", alignItems:"stretch", gap:8, marginBottom:8 }}>
-              <button onClick={() => save({...stored, [sk]: !manualDone})}
+              <button onClick={() => toggleSlot(ds, s.matiere, s.time, manualDone)}
                 style={{ width:30, borderRadius:10, border:`2px solid ${doneSlot?"#22c55e":"#334155"}`, background:doneSlot?"#22c55e":"transparent", color:"#fff", fontSize:15, fontWeight:800, cursor:"pointer", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
                 {doneSlot ? "✓" : ""}
               </button>
               <a href={cursHref}
-                style={{ flex:1, display:"flex", gap:12, padding:"12px 14px", borderRadius:10, background:s.prof?"rgba(251,191,36,.1)":doneSlot?"rgba(34,197,94,.08)":"#1e293b", border:`1px solid ${s.prof?"#f59e0b":doneSlot?"#22c55e":"#334155"}`, textDecoration:"none", color:"#e2e8f0" }}>
+                style={{ flex:1, display:"flex", gap:12, padding:"12px 14px", borderRadius:10, background:s.catchup?"rgba(239,68,68,.08)":s.prof?"rgba(251,191,36,.1)":doneSlot?"rgba(34,197,94,.08)":"#1e293b", border:s.catchup?"1px dashed #ef4444":`1px solid ${s.prof?"#f59e0b":doneSlot?"#22c55e":"#334155"}`, textDecoration:"none", color:"#e2e8f0" }}>
                 <div style={{ minWidth:70, fontSize:12, fontWeight:700, color:s.prof?"#fbbf24":col }}>{s.time}</div>
                 <div style={{ flex:1 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
@@ -215,6 +293,10 @@ export default function PlanningPage() {
             </div>
           );
         })}
+
+        {!isAbs && sch.slots && sch.slots.filter(s => !s.prof && formatDate(sel) < formatDate(new Date()) && !((!s.prof && hasActivity(ds, s.matiere)) || !!stored[slotKey(ds, s)])).map((s, i) => (
+          <MotifInput key={"motif-"+i} ds={ds} matiere={s.matiere} time={s.time} label={`${MATIERES[s.matiere]?.nom||s.matiere} — ${s.time}`} existing={reasons[`${ds}__${s.matiere}__${s.time}`]} onSave={saveReasonFor} />
+        ))}
 
         {!isAbs && rattrapage.length>0 && (
           <div style={{ marginTop:12 }}>
@@ -462,6 +544,24 @@ function Reglages({ profConfig, onClose, onSaved }) {
           <button onClick={addExtra} style={{ width:"100%", padding:12, borderRadius:10, border:"none", background:exSaved?"#22c55e":"#6366f1", color:"#fff", fontWeight:700, fontSize:14, cursor:"pointer" }}>{exSaved ? "✓ Ajoutée !" : "+ Ajouter la séance"}</button>
           <div style={{ fontSize:11, color:"#64748b", marginTop:10, fontStyle:"italic" }}>Cette séance s'ajoute au planning de ce jour précis, en plus du reste — elle ne décale pas les autres matières de la semaine.</div>
         </div>)}
+      </div>
+    </div>
+  );
+}
+
+function MotifInput({ ds, matiere, time, label, existing, onSave }) {
+  const [text, setText] = useState(existing || "");
+  const [saved, setSaved] = useState(!!existing);
+  return (
+    <div style={{ background:"rgba(239,68,68,.06)", border:"1px dashed #ef4444", borderRadius:10, padding:12, marginBottom:8 }}>
+      <div style={{ fontSize:11, fontWeight:700, color:"#fca5a5", marginBottom:6 }}>✗ Non fait — {label}</div>
+      <div style={{ display:"flex", gap:8 }}>
+        <input value={text} onChange={e => { setText(e.target.value); setSaved(false); }} placeholder="Motif (ex: malade, pas eu le temps...)"
+          style={{ flex:1, padding:8, borderRadius:8, border:"1px solid #334155", background:"#0f172a", color:"#e2e8f0", fontSize:12 }} />
+        <button onClick={() => { onSave(ds, matiere, time, text); setSaved(true); }} disabled={!text.trim()}
+          style={{ padding:"8px 12px", borderRadius:8, border:"none", background:saved?"#22c55e":"#ef4444", color:"#fff", fontWeight:700, fontSize:11, cursor:"pointer", opacity:text.trim()?1:.5 }}>
+          {saved ? "✓" : "OK"}
+        </button>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
+import { EMPLOI_SEMAINE, VACANCES, isVacation, isBacPeriod, formatDate } from "../../data/cned-data";
 
 const MATIERE_COLORS = {
   "Maths": "#818cf8", "Français": "#60a5fa", "SES": "#34d399", "HGGSP": "#fbbf24",
@@ -78,10 +79,11 @@ function RapportContent() {
         <div onClick={() => setMode("jour")} style={{ flex: 1, minWidth: 70, textAlign: "center", padding: "10px 0", borderRadius: 10, background: mode === "jour" ? "#6366f1" : "#1e293b", color: mode === "jour" ? "#fff" : "#94a3b8", fontWeight: 600, fontSize: 11, cursor: "pointer" }}>📅 Jour</div>
         <div onClick={() => setMode("temps")} style={{ flex: 1, minWidth: 70, textAlign: "center", padding: "10px 0", borderRadius: 10, background: mode === "temps" ? "#6366f1" : "#1e293b", color: mode === "temps" ? "#fff" : "#94a3b8", fontWeight: 600, fontSize: 11, cursor: "pointer" }}>⏱️ Temps</div>
         <div onClick={() => setMode("profs")} style={{ flex: 1, minWidth: 70, textAlign: "center", padding: "10px 0", borderRadius: 10, background: mode === "profs" ? "#6366f1" : "#1e293b", color: mode === "profs" ? "#fff" : "#94a3b8", fontWeight: 600, fontSize: 11, cursor: "pointer" }}>📨 Profs</div>
+        <div onClick={() => setMode("progression")} style={{ flex: 1, minWidth: 70, textAlign: "center", padding: "10px 0", borderRadius: 10, background: mode === "progression" ? "#6366f1" : "#1e293b", color: mode === "progression" ? "#fff" : "#94a3b8", fontWeight: 600, fontSize: 11, cursor: "pointer" }}>📈 Progression</div>
         <div onClick={() => setMode("prep")} style={{ flex: 1, minWidth: 70, textAlign: "center", padding: "10px 0", borderRadius: 10, background: mode === "prep" ? "#6366f1" : "#1e293b", color: mode === "prep" ? "#fff" : "#94a3b8", fontWeight: 600, fontSize: 11, cursor: "pointer" }}>🎯 Autre matière</div>
       </div>
 
-      {mode === "jour" ? <RapportJour /> : mode === "temps" ? <TempsTentatives /> : mode === "profs" ? <EnvoyerProfs /> : <PrepSeance />}
+      {mode === "jour" ? <RapportJour /> : mode === "temps" ? <TempsTentatives /> : mode === "profs" ? <EnvoyerProfs /> : mode === "progression" ? <Progression /> : <PrepSeance />}
     </div>
   );
 }
@@ -414,6 +416,98 @@ function ProfCard({ code, full, icon, pc }) {
       )}
     </div>
   );
+}
+
+const MATIERE_LABELS = { FR:"Français", MA:"Maths", SE:"SES", HG:"HGGSP", HI:"Histoire-Géographie", AN:"Anglais", ES:"Espagnol", SC:"Enseignement Scientifique", EM:"EMC" };
+const HOLIDAYS_P = ["2026-11-01","2026-11-11","2026-12-25","2027-01-01","2027-04-05","2027-05-01","2027-05-08","2027-05-14","2027-05-25"];
+
+function Progression() {
+  const [rows, setRows] = useState(null);
+  const [reasons, setReasons] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const [{ data: act }, { data: sd }, { data: abs }, { data: rs }] = await Promise.all([
+        supabase.from("activity_log").select("event_date,matiere"),
+        supabase.from("slot_done").select("event_date,matiere,done").eq("done", true),
+        supabase.from("absences_log").select("event_date"),
+        supabase.from("reasons_log").select("*").order("event_date", { ascending: false }).limit(30),
+      ]);
+      const doneSet = new Set();
+      (act || []).forEach(r => doneSet.add(`${r.event_date}__${r.matiere}`));
+      (sd || []).forEach(r => doneSet.add(`${r.event_date}__${r.matiere}`));
+      const absSet = new Set((abs || []).map(r => r.event_date));
+
+      const codes = Object.keys(MATIERE_LABELS);
+      const result = {};
+      codes.forEach(c => { result[c] = { expected: 0, done: 0 }; });
+
+      const cur = new Date(2026, 8, 7);
+      const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); yesterday.setHours(0,0,0,0);
+      while (cur <= yesterday) {
+        const ds = formatDate(cur);
+        const dow = cur.getDay();
+        if (!isVacation(ds) && !HOLIDAYS_P.includes(ds) && !isBacPeriod(ds) && !absSet.has(ds)) {
+          const daySlots = EMPLOI_SEMAINE[dow] || [];
+          codes.forEach(code => {
+            if (daySlots.some(s => s.matiere === code && !s.prof)) {
+              result[code].expected += 1;
+              if (doneSet.has(`${ds}__${code}`)) result[code].done += 1;
+            }
+          });
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+      setRows(result);
+      setReasons(rs || []);
+      setLoading(false);
+    })();
+  }, []);
+
+  if (loading || !rows) return <div style={{ textAlign: "center", color: "#94a3b8", padding: 20 }}>Chargement...</div>;
+
+  const codes = Object.keys(MATIERE_LABELS).sort((a, b) => (rows[b].expected - rows[b].done) - (rows[a].expected - rows[a].done));
+  const totalDelay = codes.reduce((s, c) => s + Math.max(0, rows[c].expected - rows[c].done), 0);
+
+  return (<div>
+    <div style={{ background: "#1e293b", borderRadius: 14, padding: 16, marginBottom: 16, textAlign: "center" }}>
+      <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 4 }}>Retard total cumulé</div>
+      <div style={{ fontSize: 28, fontWeight: 800, color: totalDelay > 0 ? "#ef4444" : "#22c55e" }}>{totalDelay} séance{totalDelay > 1 ? "s" : ""}</div>
+      <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>Depuis le 7 septembre 2026 (hors vacances et absences)</div>
+    </div>
+
+    {codes.map(code => {
+      const { expected, done } = rows[code];
+      const delay = Math.max(0, expected - done);
+      const pct = expected > 0 ? Math.round((done / expected) * 100) : 100;
+      return (
+        <div key={code} style={{ background: "#1e293b", borderRadius: 12, padding: 14, marginBottom: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>{MATIERE_LABELS[code]}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: delay > 0 ? "#ef4444" : "#22c55e" }}>{delay > 0 ? `⚠️ ${delay} en retard` : "✓ à jour"}</div>
+          </div>
+          <div style={{ height: 6, background: "#334155", borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>
+            <div style={{ height: "100%", width: `${pct}%`, background: delay > 0 ? "#f59e0b" : "#22c55e", borderRadius: 3 }} />
+          </div>
+          <div style={{ fontSize: 11, color: "#64748b" }}>{done}/{expected} séances vues</div>
+        </div>
+      );
+    })}
+
+    {reasons.length > 0 && (
+      <div style={{ marginTop: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>📝 Motifs donnés (30 derniers)</div>
+        {reasons.map((r, i) => (
+          <div key={i} style={{ background: "#1e293b", borderRadius: 10, padding: 12, marginBottom: 6 }}>
+            <div style={{ fontSize: 11, color: "#64748b", marginBottom: 2 }}>{new Date(r.event_date).toLocaleDateString("fr-FR")} · {MATIERE_LABELS[r.matiere] || r.matiere} · {r.slot_time}</div>
+            <div style={{ fontSize: 13, color: "#e2e8f0" }}>{r.reason}</div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>);
 }
 
 function PrepSeance() {
