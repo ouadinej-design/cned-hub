@@ -26,6 +26,10 @@ function parseTimeRange(str) {
 function timeOverlaps(aStart, aEnd, bStart, bEnd) {
   return aStart < bEnd && bStart < aEnd;
 }
+function formatTimeDecimal(h) {
+  const hh = Math.floor(h); const mm = Math.round((h - hh) * 60);
+  return mm === 0 ? `${hh}h` : `${hh}h${mm}`;
+}
 
 export default function PlanningPage() {
   const [stored, setStored] = useState(() => { try { return JSON.parse(localStorage.getItem("pl")||"{}"); } catch { return {}; } });
@@ -67,11 +71,24 @@ export default function PlanningPage() {
     Object.values(profConfig).forEach(pc => {
       if (pc.jour === dow) {
         const [ps, pe] = parseTimeRange(`${pc.heure_debut}-${pc.heure_fin}`);
+        const before = slots;
         slots = slots.filter(s => {
           const [ss, se] = parseTimeRange(s.time);
           return !timeOverlaps(ps, pe, ss, se);
         });
-        slots = [{ time: `${pc.heure_debut}-${pc.heure_fin}`, matiere: pc.matiere, desc: `📚 PROF DE ${MATIERES[pc.matiere]?.nom?.toUpperCase()||pc.matiere} (${pc.heure_debut}-${pc.heure_fin})`, prof: true, tentative: pc.tentative }, ...slots];
+        // Règle : Français et Maths doivent apparaître chaque jour — si le conflit les a fait disparaître, on les rajoute juste après la séance du prof
+        const removedFR = before.some(s => s.matiere === "FR") && !slots.some(s => s.matiere === "FR");
+        const removedMA = before.some(s => s.matiere === "MA") && !slots.some(s => s.matiere === "MA");
+        let fallbackCursor = pe;
+        const fallbacks = [];
+        if (removedFR && pc.matiere !== "FR") {
+          fallbacks.push({ time: `${formatTimeDecimal(fallbackCursor)}-${formatTimeDecimal(fallbackCursor+1)}`, matiere:"FR", desc:"Français — Rattrapage (conflit d'horaire avec le prof)" });
+          fallbackCursor += 1;
+        }
+        if (removedMA && pc.matiere !== "MA") {
+          fallbacks.push({ time: `${formatTimeDecimal(fallbackCursor)}-${formatTimeDecimal(fallbackCursor+1)}`, matiere:"MA", desc:"Maths — Rattrapage (conflit d'horaire avec le prof)" });
+        }
+        slots = [{ time: `${pc.heure_debut}-${pc.heure_fin}`, matiere: pc.matiere, desc: `📚 PROF DE ${MATIERES[pc.matiere]?.nom?.toUpperCase()||pc.matiere} (${pc.heure_debut}-${pc.heure_fin})`, prof: true, tentative: pc.tentative }, ...slots, ...fallbacks];
       }
     });
     // inject one-off extra sessions for this exact date — same overlap protection

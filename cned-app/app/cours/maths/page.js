@@ -202,6 +202,23 @@ const SEANCES = [
 const LEVELS = { 1: { label: "Facile", c: "#22c55e" }, 2: { label: "Moyen", c: "#f59e0b" }, 3: { label: "Difficile", c: "#ef4444" } };
 
 export default function MathsPage() {
+  useEffect(() => {
+    let seconds = 0;
+    const flush = () => {
+      if (seconds > 0) {
+        const today = new Date().toISOString().split("T")[0];
+        supabase.from("time_log").insert({ event_date: today, matiere: "MA", seconds, ts: Date.now() }).then(() => {}, () => {});
+        seconds = 0;
+      }
+    };
+    const iv = setInterval(() => { if (document.visibilityState === "visible") seconds += 30; }, 30000);
+    const flushIv = setInterval(flush, 30000);
+    const onHide = () => { if (document.visibilityState === "hidden") flush(); };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("beforeunload", flush);
+    return () => { clearInterval(iv); clearInterval(flushIv); flush(); document.removeEventListener("visibilitychange", onHide); window.removeEventListener("beforeunload", flush); };
+  }, []);
+
   const [view, setView] = useState("home");
   const [si, setSi] = useState(0);
   const [li, setLi] = useState(0);
@@ -303,7 +320,7 @@ function Exos({ s, mark }) {
         <input value={ans[gi]||""} onChange={e => setAns({...ans,[gi]:e.target.value})} placeholder="Ta réponse..."
           style={{ width:"100%", padding:10, borderRadius:8, border:"1px solid #334155", background:"#0f172a", color:"#e2e8f0", fontSize:14, boxSizing:"border-box" }} />
         <div style={{ display:"flex", gap:8, marginTop:10 }}>
-          <button onClick={() => { const a=(ans[gi]||"").toLowerCase().replace(/\s/g,""); const c=ex.answer.toLowerCase().replace(/\s/g,""); const ok=a===c||a.includes(c)||c.includes(a); setRes({...res,[gi]:ok}); if(!ok) logDifficulty("Maths", s.title, ex.q, ans[gi]||"(vide)", ex.answer, ex.hint); }}
+          <button onClick={() => { const a=(ans[gi]||"").toLowerCase().replace(/\s/g,""); const c=ex.answer.toLowerCase().replace(/\s/g,""); const ok=a===c||a.includes(c)||c.includes(a); setRes({...res,[gi]:ok}); if(!ok) logDifficulty("Maths", s.title, ex.q, ans[gi]||"(vide)", ex.answer, ex.hint); supabase.from("attempts_log").insert({ event_date:new Date().toISOString().split("T")[0], matiere:"MA", seance:s.title, type:"exercice", identifier:ex.q, correct:ok, ts:Date.now() }).then(()=>{},()=>{}); }}
             style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#6366f1", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Vérifier</button>
           {r===false && <button onClick={() => alert("💡 "+ex.hint)} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#f59e0b", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Indice</button>}
         </div>
@@ -322,7 +339,7 @@ function Quiz({ s, mark }) {
   const [sh, setSh] = useState(false);
   const q = s.quiz[qi];
   const chk = (i) => { if(sh) return; setSel(i); setSh(true); if(i===q.correct) setSc(x=>x+1); };
-  const nxt = () => { if(qi<s.quiz.length-1){ setQi(qi+1); setSel(null); setSh(false); } else { setFin(true); const finalScore = sc+(sel===q.correct?1:0); if(finalScore>=Math.ceil(s.quiz.length*.6)) mark(s.id,"quiz"); const wrong = s.quiz.filter((qq,idx) => idx<=qi && !(idx===qi?sel===qq.correct:true)).map(qq=>qq.q); logQuizResult("Maths", s.title, finalScore, s.quiz.length, wrong); } };
+  const nxt = () => { if(qi<s.quiz.length-1){ setQi(qi+1); setSel(null); setSh(false); } else { setFin(true); const finalScore = sc+(sel===q.correct?1:0); if(finalScore>=Math.ceil(s.quiz.length*.6)) mark(s.id,"quiz"); const wrong = s.quiz.filter((qq,idx) => idx<=qi && !(idx===qi?sel===qq.correct:true)).map(qq=>qq.q); logQuizResult("Maths", s.title, finalScore, s.quiz.length, wrong);  supabase.from("attempts_log").insert({ event_date:new Date().toISOString().split("T")[0], matiere:"MA", seance:s.title, type:"quiz", identifier:s.title, correct:finalScore>=Math.ceil(s.quiz.length*.6), score:finalScore, total:s.quiz.length, ts:Date.now() }).then(()=>{},()=>{}); } };
   const rst = () => { setQi(0); setSel(null); setSc(0); setFin(false); setSh(false); };
   if(fin) return (<div style={{ background:"#1e293b", borderRadius:14, padding:24, textAlign:"center" }}>
     <div style={{ fontSize:48, marginBottom:10 }}>{sc>=Math.ceil(s.quiz.length*.6)?"🎉":"📚"}</div>

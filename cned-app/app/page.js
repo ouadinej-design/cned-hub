@@ -4,7 +4,6 @@ export default function Home() {
     { href:"/planning", icon:"📅", title:"Planning", desc:"Emploi du temps jour par jour", color:"#6366f1" },
     { href:"/devoirs", icon:"📋", title:"Devoirs", desc:"Suivi des devoirs CNED", color:"#ef4444" },
     { href:"/cours", icon:"📖", title:"Cours", desc:"9 matières + Prof IA", color:"#3b82f6" },
-    { href:"/rapport", icon:"📊", title:"Rapport", desc:"Suivi pour le prof particulier", color:"#22c55e" },
     { href:"/regles", icon:"⚠️", title:"Règles CNED", desc:"Contrôle continu & dates clés", color:"#f59e0b" },
   ];
   return (
@@ -26,7 +25,7 @@ export default function Home() {
         <div style={{ fontWeight:700, fontSize:13, color:"#fca5a5", marginBottom:4 }}>⚠️ Rappel contrôle continu</div>
         <div style={{ fontSize:12, color:"#fca5a5" }}>Bac = 40% CC + 60% épreuves. 100% devoirs rendus à temps. 14j min entre 2 devoirs même matière.</div>
       </div>
-      <div style={{ textAlign:"center", fontSize:11, color:"#475569", marginTop:20 }}>v3.0 — 9 matières + Rapport auto 📊</div>
+      <div style={{ textAlign:"center", fontSize:11, color:"#475569", marginTop:20 }}>v3.1</div>
     </div>
   );
 }
