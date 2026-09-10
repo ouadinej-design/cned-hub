@@ -11,6 +11,9 @@ export default function ProgresPage() {
   const [subjectStats, setSubjectStats] = useState({});
   const [streak, setStreak] = useState(0);
   const [totalPct, setTotalPct] = useState(0);
+  const [bestScores, setBestScores] = useState({});
+  const [perfectCount, setPerfectCount] = useState(0);
+  const [firstTryCount, setFirstTryCount] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -63,6 +66,36 @@ export default function ProgresPage() {
         else break;
       }
       setStreak(s);
+
+      // Meilleurs scores (pour se challenger) — uniquement les scores, jamais le nombre de tentatives ratées
+      const { data: att } = await supabase.from("attempts_log").select("matiere,type,identifier,seance,correct,score,total,ts").order("ts", { ascending: true });
+      const bestByKey = {};
+      let perfect = 0;
+      let firstTry = 0;
+      const seenExercise = new Set();
+      (att || []).forEach(a => {
+        const key = a.matiere + "::" + a.type + "::" + a.identifier;
+        if (a.type === "quiz") {
+          const pct = a.total > 0 ? a.score / a.total : 0;
+          if (!bestByKey[key] || pct > bestByKey[key].pct) {
+            bestByKey[key] = { matiere: a.matiere, seance: a.seance, score: a.score, total: a.total, pct };
+          }
+          if (a.score === a.total && a.total > 0) perfect += 1;
+        } else if (a.type === "exercice") {
+          if (!seenExercise.has(key)) {
+            seenExercise.add(key);
+            if (a.correct) firstTry += 1;
+          }
+        }
+      });
+      const bestPerMatiere = {};
+      Object.values(bestByKey).forEach(b => {
+        if (!bestPerMatiere[b.matiere] || b.pct > bestPerMatiere[b.matiere].pct) bestPerMatiere[b.matiere] = b;
+      });
+      setBestScores(bestPerMatiere);
+      setPerfectCount(perfect);
+      setFirstTryCount(firstTry);
+
       setLoading(false);
     })();
   }, []);
@@ -139,6 +172,44 @@ export default function ProgresPage() {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {(perfectCount > 0 || firstTryCount > 0) && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+              <div style={{ background: "linear-gradient(135deg,#f59e0b,#fbbf24)", borderRadius: 14, padding: 16, textAlign: "center" }}>
+                <div style={{ fontSize: 26 }}>🏆</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{perfectCount}</div>
+                <div style={{ fontSize: 10, color: "#fff", opacity: .9 }}>quiz à 100%</div>
+              </div>
+              <div style={{ background: "linear-gradient(135deg,#22c55e,#4ade80)", borderRadius: 14, padding: 16, textAlign: "center" }}>
+                <div style={{ fontSize: 26 }}>⚡</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{firstTryCount}</div>
+                <div style={{ fontSize: 10, color: "#fff", opacity: .9 }}>réussis du 1er coup</div>
+              </div>
+            </div>
+          )}
+
+          {Object.keys(bestScores).length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>🎯 Mes meilleurs scores — à battre !</div>
+              {Object.entries(bestScores).map(([code, b]) => {
+                const info = MATIERE_LABELS[code];
+                if (!info) return null;
+                const pct = Math.round(b.pct * 100);
+                const isPerfect = b.score === b.total;
+                return (
+                  <div key={code} style={{ display: "flex", alignItems: "center", gap: 10, background: "#1e293b", borderRadius: 12, padding: 12, marginBottom: 8, borderLeft: `4px solid ${info.color}` }}>
+                    <div style={{ fontSize: 22 }}>{isPerfect ? "🏆" : info.icon}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700 }}>{info.nom}</div>
+                      <div style={{ fontSize: 10, color: "#94a3b8" }}>{b.seance}</div>
+                    </div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: isPerfect ? "#fbbf24" : pct >= 70 ? "#22c55e" : "#818cf8" }}>{b.score}/{b.total}</div>
+                  </div>
+                );
+              })}
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 6, fontStyle: "italic", textAlign: "center" }}>Retente un quiz pour battre ton record ! 🚀</div>
             </div>
           )}
 
