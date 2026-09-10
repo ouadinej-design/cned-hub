@@ -107,6 +107,8 @@ export default function PlanningPage() {
   };
   const hasActivity = (dateStr, matiere) => !!(activity[dateStr] && activity[dateStr][matiere]);
   const dayFullyDone = (date) => { const ds = formatDate(date); const sch = getSchedule(date); if (sch.type !== "normal" || !sch.slots) return false; const matieres = [...new Set(sch.slots.filter(s=>!s.prof).map(s=>s.matiere))]; return matieres.length>0 && matieres.every(m => hasActivity(ds, m)); };
+  const slotKey = (ds, s) => `${ds}__${s.matiere}__${s.time}`;
+  const allSlotsDone = (date) => { const ds = formatDate(date); const sch = getSchedule(date); if (sch.type !== "normal" || !sch.slots || sch.slots.length===0) return false; return sch.slots.every(s => (!s.prof && hasActivity(ds, s.matiere)) || !!stored[slotKey(ds, s)]); };
 
 
   // --- RATTRAPAGE : redistribute absent day's slots to remaining days ---
@@ -154,7 +156,7 @@ export default function PlanningPage() {
   // --- DAY DETAIL ---
   if (sel) {
     const sch = getSchedule(sel); const ds = formatDate(sel);
-    const dayDvs = getDevoirsForDate(ds); const isDone = stored[ds] || dayFullyDone(sel); const isAbs = absences[ds];
+    const dayDvs = getDevoirsForDate(ds); const isDone = allSlotsDone(sel); const isAbs = absences[ds];
     const rattrapage = getRattrapageSlots(sel);
 
     return (
@@ -187,21 +189,30 @@ export default function PlanningPage() {
         {!isAbs && sch.slots && sch.slots.map((s,i) => {
           const m = MATIERES[s.matiere]; const col = m?.color||"#6366f1";
           const cursDone = !s.prof && hasActivity(ds, s.matiere);
+          const sk = slotKey(ds, s);
+          const manualDone = !!stored[sk];
+          const doneSlot = cursDone || manualDone;
           const cursHref = {FR:"/cours/francais",MA:"/cours/maths",SE:"/cours/ses",HG:"/cours/hggsp",HI:"/cours/histgeo",EM:"/cours/emc",SC:"/cours/enssci",AN:"/cours/anglais",ES:"/cours/espagnol"}[s.matiere];
           return (
-            <a key={i} href={cursHref}
-              style={{ display:"flex", gap:12, marginBottom:8, padding:"12px 14px", borderRadius:10, background:s.prof?"rgba(251,191,36,.1)":cursDone?"rgba(34,197,94,.08)":"#1e293b", border:`1px solid ${s.prof?"#f59e0b":cursDone?"#22c55e":"#334155"}`, textDecoration:"none", color:"#e2e8f0" }}>
-              <div style={{ minWidth:70, fontSize:12, fontWeight:700, color:s.prof?"#fbbf24":col }}>{s.time}</div>
-              <div style={{ flex:1 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
-                  <span style={{ width:8, height:8, borderRadius:"50%", background:col }} />
-                  <span style={{ fontSize:12, fontWeight:700, color:col }}>{m?.nom||s.matiere}</span>
-                  {s.tentative && <span style={{ fontSize:9, color:"#f59e0b" }}>(à confirmer)</span>}
+            <div key={i} style={{ display:"flex", alignItems:"stretch", gap:8, marginBottom:8 }}>
+              <button onClick={() => save({...stored, [sk]: !manualDone})}
+                style={{ width:30, borderRadius:10, border:`2px solid ${doneSlot?"#22c55e":"#334155"}`, background:doneSlot?"#22c55e":"transparent", color:"#fff", fontSize:15, fontWeight:800, cursor:"pointer", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                {doneSlot ? "✓" : ""}
+              </button>
+              <a href={cursHref}
+                style={{ flex:1, display:"flex", gap:12, padding:"12px 14px", borderRadius:10, background:s.prof?"rgba(251,191,36,.1)":doneSlot?"rgba(34,197,94,.08)":"#1e293b", border:`1px solid ${s.prof?"#f59e0b":doneSlot?"#22c55e":"#334155"}`, textDecoration:"none", color:"#e2e8f0" }}>
+                <div style={{ minWidth:70, fontSize:12, fontWeight:700, color:s.prof?"#fbbf24":col }}>{s.time}</div>
+                <div style={{ flex:1 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                    <span style={{ width:8, height:8, borderRadius:"50%", background:col }} />
+                    <span style={{ fontSize:12, fontWeight:700, color:col }}>{m?.nom||s.matiere}</span>
+                    {s.tentative && <span style={{ fontSize:9, color:"#f59e0b" }}>(à confirmer)</span>}
+                  </div>
+                  <div style={{ fontSize:12, color:"#94a3b8" }}>{s.desc}</div>
                 </div>
-                <div style={{ fontSize:12, color:"#94a3b8" }}>{s.desc}</div>
-              </div>
-              {cursDone && <span style={{ fontSize:16 }}>✅</span>}
-            </a>
+                {cursDone && <span style={{ fontSize:16 }}>✅</span>}
+              </a>
+            </div>
           );
         })}
 
@@ -229,7 +240,7 @@ export default function PlanningPage() {
           </div>
         )}
 
-        {!isAbs && (sch.type==="normal"||sch.type==="bac") && <button onClick={() => { save({...stored,[ds]:!stored[ds]}); }} style={{ marginTop:12, width:"100%", padding:12, borderRadius:10, border:"none", background:isDone?"#22c55e":"#6366f1", color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer" }}>{isDone?"✓ Terminé — Annuler":"Marquer comme terminé"}</button>}
+        {!isAbs && isDone && <div style={{ marginTop:12, textAlign:"center", padding:12, borderRadius:10, background:"rgba(34,197,94,.1)", color:"#22c55e", fontWeight:700, fontSize:13 }}>✓ Toutes les séances du jour sont cochées</div>}
       </div>
     );
   }
@@ -274,7 +285,7 @@ export default function PlanningPage() {
       </div>}
 
       {days.map((date,i) => {
-        const sch = getSchedule(date); const ds = formatDate(date); const isDone = stored[ds] || dayFullyDone(date); const isAbs = absences[ds];
+        const sch = getSchedule(date); const ds = formatDate(date); const isDone = allSlotsDone(date); const isAbs = absences[ds];
         const isToday = formatDate(new Date())===ds; const dayDvs = getDevoirsForDate(ds);
         const rattrapage = getRattrapageSlots(date);
         let bg="#1e293b", bd="#334155";

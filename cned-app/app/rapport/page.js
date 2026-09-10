@@ -74,13 +74,14 @@ function RapportContent() {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
-        <div onClick={() => setMode("jour")} style={{ flex: 1, textAlign: "center", padding: "10px 0", borderRadius: 10, background: mode === "jour" ? "#6366f1" : "#1e293b", color: mode === "jour" ? "#fff" : "#94a3b8", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>📅 Jour</div>
-        <div onClick={() => setMode("temps")} style={{ flex: 1, textAlign: "center", padding: "10px 0", borderRadius: 10, background: mode === "temps" ? "#6366f1" : "#1e293b", color: mode === "temps" ? "#fff" : "#94a3b8", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>⏱️ Temps</div>
-        <div onClick={() => setMode("prep")} style={{ flex: 1, textAlign: "center", padding: "10px 0", borderRadius: 10, background: mode === "prep" ? "#6366f1" : "#1e293b", color: mode === "prep" ? "#fff" : "#94a3b8", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>🎯 Séance</div>
+      <div style={{ display: "flex", gap: 5, marginBottom: 20, flexWrap: "wrap" }}>
+        <div onClick={() => setMode("jour")} style={{ flex: 1, minWidth: 70, textAlign: "center", padding: "10px 0", borderRadius: 10, background: mode === "jour" ? "#6366f1" : "#1e293b", color: mode === "jour" ? "#fff" : "#94a3b8", fontWeight: 600, fontSize: 11, cursor: "pointer" }}>📅 Jour</div>
+        <div onClick={() => setMode("temps")} style={{ flex: 1, minWidth: 70, textAlign: "center", padding: "10px 0", borderRadius: 10, background: mode === "temps" ? "#6366f1" : "#1e293b", color: mode === "temps" ? "#fff" : "#94a3b8", fontWeight: 600, fontSize: 11, cursor: "pointer" }}>⏱️ Temps</div>
+        <div onClick={() => setMode("profs")} style={{ flex: 1, minWidth: 70, textAlign: "center", padding: "10px 0", borderRadius: 10, background: mode === "profs" ? "#6366f1" : "#1e293b", color: mode === "profs" ? "#fff" : "#94a3b8", fontWeight: 600, fontSize: 11, cursor: "pointer" }}>📨 Profs</div>
+        <div onClick={() => setMode("prep")} style={{ flex: 1, minWidth: 70, textAlign: "center", padding: "10px 0", borderRadius: 10, background: mode === "prep" ? "#6366f1" : "#1e293b", color: mode === "prep" ? "#fff" : "#94a3b8", fontWeight: 600, fontSize: 11, cursor: "pointer" }}>🎯 Autre matière</div>
       </div>
 
-      {mode === "jour" ? <RapportJour /> : mode === "temps" ? <TempsTentatives /> : <PrepSeance />}
+      {mode === "jour" ? <RapportJour /> : mode === "temps" ? <TempsTentatives /> : mode === "profs" ? <EnvoyerProfs /> : <PrepSeance />}
     </div>
   );
 }
@@ -286,6 +287,133 @@ function TempsTentatives() {
       );
     })}
   </div>);
+}
+
+const DAY_NAMES_FULL_RAPPORT = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
+
+function nextOccurrence(jour, heureDebut) {
+  const now = new Date();
+  const [h, m] = heureDebut.replace("h", ":").replace(/:$/, ":00").split(":").map(x => parseInt(x || "0", 10));
+  let d = new Date(now);
+  let diff = (jour - now.getDay() + 7) % 7;
+  d.setDate(now.getDate() + diff);
+  d.setHours(h || 0, m || 0, 0, 0);
+  if (diff === 0 && d <= now) d.setDate(d.getDate() + 7); // session already passed today
+  return d;
+}
+
+function EnvoyerProfs() {
+  const [profConfig, setProfConfig] = useState({});
+  const [loadingCfg, setLoadingCfg] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("prof_config").select("*");
+      const map = {}; (data || []).forEach(r => { map[r.matiere] = r; });
+      setProfConfig(map);
+      setLoadingCfg(false);
+    })();
+  }, []);
+
+  const entries = [
+    { code: "MA", full: "Maths", icon: "📐" },
+    { code: "FR", full: "Français", icon: "📖" },
+  ];
+
+  return (<div>
+    <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16, lineHeight: 1.6 }}>
+      Message prêt à envoyer aux profs particuliers de Maths et Français, basé sur les difficultés récentes de ton fils. Pense à l'envoyer la veille de la séance.
+    </div>
+    {loadingCfg && <div style={{ textAlign: "center", color: "#94a3b8", padding: 20 }}>Chargement...</div>}
+    {!loadingCfg && entries.map(e => <ProfCard key={e.code} {...e} pc={profConfig[e.code]} />)}
+  </div>);
+}
+
+function ProfCard({ code, full, icon, pc }) {
+  const [rows, setRows] = useState([]);
+  const [analyse, setAnalyse] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [analysing, setAnalysing] = useState(false);
+  const [fetched, setFetched] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const nextDate = pc ? nextOccurrence(pc.jour, pc.heure_debut) : null;
+  const isTomorrowOrSooner = nextDate && (nextDate - new Date()) < 36 * 3600 * 1000;
+
+  const fetchAndAnalyse = async () => {
+    setLoading(true); setFetched(true); setAnalyse("");
+    const since = new Date(); since.setDate(since.getDate() - 7);
+    const { data } = await supabase.from("difficulties_log").select("*").eq("matiere", full).gte("event_date", isoDate(since)).order("ts", { ascending: true });
+    const rowsData = data || [];
+    setRows(rowsData);
+    setLoading(false);
+    if (rowsData.length > 0) {
+      setAnalysing(true);
+      try {
+        const r = await fetch("/api/ai/corriger", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "analyse_difficultes", matiere: full, exercices: rowsData.map(row => ({
+            type: row.type, seance: row.seance, question: row.question, reponse_eleve: row.user_answer, reponse_attendue: row.correct_answer,
+            score: row.score, total: row.total, questions_ratees: row.wrong_questions
+          })) }) });
+        const d = await r.json();
+        setAnalyse(d.reply || "");
+      } catch { setAnalyse(""); }
+      setAnalysing(false);
+    }
+  };
+
+  const exos = rows.filter(r => r.type === "exercice");
+  const quizzes = rows.filter(r => r.type === "quiz");
+
+  const buildMessage = () => {
+    let txt = `Bonjour,\n\nAvant la prochaine séance de ${full}${nextDate ? ` (${DAY_NAMES_FULL_RAPPORT[nextDate.getDay()]} ${nextDate.getDate()}/${nextDate.getMonth()+1})` : ""}, voici un point sur le travail de mon fils cette semaine :\n\n`;
+    if (rows.length === 0) { txt += "Pas de difficulté particulière détectée récemment — RAS.\n"; }
+    else {
+      if (analyse) txt += `${analyse}\n\n`;
+      txt += `─── Détail brut ───\n`;
+      exos.forEach(ex => txt += `\n• [${ex.seance}] ${ex.question}\n  → Réponse donnée : "${ex.user_answer}"\n  → Réponse attendue : "${ex.correct_answer}"\n`);
+      quizzes.forEach(q => { txt += `\n📊 Quiz "${q.seance}" : ${q.score}/${q.total}\n`; (q.wrong_questions || []).forEach(w => txt += `   ✗ ${w}\n`); });
+    }
+    txt += `\nMerci d'avance de vous concentrer sur ces points pendant la séance.\n\nCordialement`;
+    return txt;
+  };
+
+  const copyMsg = async () => { try { await navigator.clipboard.writeText(buildMessage()); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {} };
+  const shareMsg = async () => { const txt = buildMessage(); if (navigator.share) { try { await navigator.share({ title: `Prof de ${full}`, text: txt }); } catch {} } else copyMsg(); };
+
+  return (
+    <div style={{ background: "#1e293b", borderRadius: 14, padding: 16, marginBottom: 16, borderLeft: `4px solid ${code === "MA" ? "#818cf8" : "#60a5fa"}` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: 15 }}>{icon} Prof de {full}</div>
+        {isTomorrowOrSooner && <span style={{ fontSize: 10, fontWeight: 700, color: "#fbbf24", background: "rgba(251,191,36,.15)", padding: "3px 8px", borderRadius: 20 }}>À envoyer bientôt</span>}
+      </div>
+      {pc ? (
+        <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12 }}>
+          Prochaine séance : <strong style={{ color: "#e2e8f0" }}>{DAY_NAMES_FULL_RAPPORT[nextDate.getDay()]} {nextDate.getDate()}/{nextDate.getMonth()+1} à {pc.heure_debut}</strong>
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12, fontStyle: "italic" }}>Aucun horaire de prof configuré (réglages du planning).</div>
+      )}
+
+      {!fetched && <button onClick={fetchAndAnalyse} style={{ width: "100%", padding: 10, borderRadius: 10, border: "none", background: "#6366f1", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Préparer le message (7 derniers jours)</button>}
+
+      {fetched && loading && <div style={{ fontSize: 12, color: "#94a3b8" }}>Chargement...</div>}
+
+      {fetched && !loading && (
+        <>
+          {analysing ? <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 10 }}>Analyse en cours...</div> : (
+            rows.length === 0
+              ? <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic", marginBottom: 10 }}>Rien à signaler cette semaine.</div>
+              : <div style={{ fontSize: 12, color: "#e2e8f0", lineHeight: 1.6, whiteSpace: "pre-wrap", marginBottom: 10 }}>{analyse}</div>
+          )}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={copyMsg} style={{ flex: 1, padding: 10, borderRadius: 10, border: "none", background: copied ? "#22c55e" : "#6366f1", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>{copied ? "✓ Copié !" : "📋 Copier"}</button>
+            <button onClick={shareMsg} style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid #334155", background: "#0f172a", color: "#e2e8f0", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>📤 Envoyer</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 function PrepSeance() {
