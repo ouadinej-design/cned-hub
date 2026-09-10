@@ -330,7 +330,7 @@ function EnvoyerProfs() {
 
   return (<div>
     <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16, lineHeight: 1.6 }}>
-      Message prêt à envoyer aux profs particuliers de Maths et Français, basé sur les difficultés récentes de ton fils. Pense à l'envoyer la veille de la séance.
+      Envoie un message principal 2 jours avant la séance (le prof a le temps de préparer), puis un petit complément la veille ou le matin même avec les dernières difficultés.
     </div>
     {loadingCfg && <div style={{ textAlign: "center", color: "#94a3b8", padding: 20 }}>Chargement...</div>}
     {!loadingCfg && entries.map(e => <ProfCard key={e.code} {...e} pc={profConfig[e.code]} />)}
@@ -338,6 +338,7 @@ function EnvoyerProfs() {
 }
 
 function ProfCard({ code, full, icon, pc }) {
+  const [msgType, setMsgType] = useState("principal"); // "principal" (J-2, semaine complète) | "complement" (J-1/J, dernières 48h)
   const [rows, setRows] = useState([]);
   const [analyse, setAnalyse] = useState("");
   const [loading, setLoading] = useState(false);
@@ -346,11 +347,14 @@ function ProfCard({ code, full, icon, pc }) {
   const [copied, setCopied] = useState(false);
 
   const nextDate = pc ? nextOccurrence(pc.jour, pc.heure_debut) : null;
-  const isTomorrowOrSooner = nextDate && (nextDate - new Date()) < 36 * 3600 * 1000;
+  const daysUntil = nextDate ? (nextDate - new Date()) / (3600 * 1000 * 24) : null;
+  const suggestPrincipal = daysUntil !== null && daysUntil <= 2 && daysUntil > 1;
+  const suggestComplement = daysUntil !== null && daysUntil <= 1;
 
-  const fetchAndAnalyse = async () => {
+  const fetchAndAnalyse = async (type) => {
+    setMsgType(type);
     setLoading(true); setFetched(true); setAnalyse("");
-    const since = new Date(); since.setDate(since.getDate() - 7);
+    const since = new Date(); since.setDate(since.getDate() - (type === "complement" ? 2 : 7));
     const { data } = await supabase.from("difficulties_log").select("*").eq("matiere", full).gte("event_date", isoDate(since)).order("ts", { ascending: true });
     const rowsData = data || [];
     setRows(rowsData);
@@ -374,15 +378,21 @@ function ProfCard({ code, full, icon, pc }) {
   const quizzes = rows.filter(r => r.type === "quiz");
 
   const buildMessage = () => {
-    let txt = `Bonjour,\n\nAvant la prochaine séance de ${full}${nextDate ? ` (${DAY_NAMES_FULL_RAPPORT[nextDate.getDay()]} ${nextDate.getDate()}/${nextDate.getMonth()+1})` : ""}, voici un point sur le travail de mon fils cette semaine :\n\n`;
-    if (rows.length === 0) { txt += "Pas de difficulté particulière détectée récemment — RAS.\n"; }
+    const periodLabel = msgType === "complement" ? "les 2 derniers jours (complément avant la séance)" : "cette semaine";
+    let txt = `Bonjour,\n\n`;
+    if (msgType === "complement") {
+      txt += `Petit complément avant la séance de ${full}${nextDate ? ` de ${DAY_NAMES_FULL_RAPPORT[nextDate.getDay()]}` : ""} — voici ce qui s'est passé depuis mon dernier message, sur ${periodLabel} :\n\n`;
+    } else {
+      txt += `Avant la séance de ${full}${nextDate ? ` (${DAY_NAMES_FULL_RAPPORT[nextDate.getDay()]} ${nextDate.getDate()}/${nextDate.getMonth()+1})` : ""}, voici un point sur le travail de mon fils sur ${periodLabel}, pour vous laisser le temps de préparer :\n\n`;
+    }
+    if (rows.length === 0) { txt += "Pas de difficulté particulière détectée — RAS.\n"; }
     else {
       if (analyse) txt += `${analyse}\n\n`;
       txt += `─── Détail brut ───\n`;
       exos.forEach(ex => txt += `\n• [${ex.seance}] ${ex.question}\n  → Réponse donnée : "${ex.user_answer}"\n  → Réponse attendue : "${ex.correct_answer}"\n`);
       quizzes.forEach(q => { txt += `\n📊 Quiz "${q.seance}" : ${q.score}/${q.total}\n`; (q.wrong_questions || []).forEach(w => txt += `   ✗ ${w}\n`); });
     }
-    txt += `\nMerci d'avance de vous concentrer sur ces points pendant la séance.\n\nCordialement`;
+    txt += msgType === "complement" ? `\nMerci !\n\nCordialement` : `\nMerci d'avance de vous concentrer sur ces points pendant la séance.\n\nCordialement`;
     return txt;
   };
 
@@ -393,7 +403,8 @@ function ProfCard({ code, full, icon, pc }) {
     <div style={{ background: "#1e293b", borderRadius: 14, padding: 16, marginBottom: 16, borderLeft: `4px solid ${code === "MA" ? "#818cf8" : "#60a5fa"}` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <div style={{ fontWeight: 700, fontSize: 15 }}>{icon} Prof de {full}</div>
-        {isTomorrowOrSooner && <span style={{ fontSize: 10, fontWeight: 700, color: "#fbbf24", background: "rgba(251,191,36,.15)", padding: "3px 8px", borderRadius: 20 }}>À envoyer bientôt</span>}
+        {suggestPrincipal && <span style={{ fontSize: 10, fontWeight: 700, color: "#fbbf24", background: "rgba(251,191,36,.15)", padding: "3px 8px", borderRadius: 20 }}>Message principal à envoyer (J-2)</span>}
+        {suggestComplement && <span style={{ fontSize: 10, fontWeight: 700, color: "#f87171", background: "rgba(239,68,68,.15)", padding: "3px 8px", borderRadius: 20 }}>Complément à envoyer</span>}
       </div>
       {pc ? (
         <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12 }}>
@@ -403,21 +414,28 @@ function ProfCard({ code, full, icon, pc }) {
         <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12, fontStyle: "italic" }}>Aucun horaire de prof configuré (réglages du planning).</div>
       )}
 
-      {!fetched && <button onClick={fetchAndAnalyse} style={{ width: "100%", padding: 10, borderRadius: 10, border: "none", background: "#6366f1", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Préparer le message (7 derniers jours)</button>}
+      {!fetched && (
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => fetchAndAnalyse("principal")} style={{ flex: 1, padding: 10, borderRadius: 10, border: "none", background: "#6366f1", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>📋 Message principal (J-2)</button>
+          <button onClick={() => fetchAndAnalyse("complement")} style={{ flex: 1, padding: 10, borderRadius: 10, border: "1px solid #334155", background: "#0f172a", color: "#e2e8f0", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>⚡ Complément (48h)</button>
+        </div>
+      )}
 
       {fetched && loading && <div style={{ fontSize: 12, color: "#94a3b8" }}>Chargement...</div>}
 
       {fetched && !loading && (
         <>
+          <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>{msgType === "complement" ? "⚡ Mode complément — dernières 48h" : "📋 Mode principal — 7 derniers jours"}</div>
           {analysing ? <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 10 }}>Analyse en cours...</div> : (
             rows.length === 0
-              ? <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic", marginBottom: 10 }}>Rien à signaler cette semaine.</div>
+              ? <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic", marginBottom: 10 }}>Rien à signaler sur cette période.</div>
               : <div style={{ fontSize: 12, color: "#e2e8f0", lineHeight: 1.6, whiteSpace: "pre-wrap", marginBottom: 10 }}>{analyse}</div>
           )}
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
             <button onClick={copyMsg} style={{ flex: 1, padding: 10, borderRadius: 10, border: "none", background: copied ? "#22c55e" : "#6366f1", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>{copied ? "✓ Copié !" : "📋 Copier"}</button>
             <button onClick={shareMsg} style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid #334155", background: "#0f172a", color: "#e2e8f0", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>📤 Envoyer</button>
           </div>
+          <button onClick={() => setFetched(false)} style={{ width: "100%", padding: 8, borderRadius: 8, border: "none", background: "transparent", color: "#64748b", fontWeight: 600, fontSize: 11, cursor: "pointer" }}>← Changer de mode</button>
         </>
       )}
     </div>
