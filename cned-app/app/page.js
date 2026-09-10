@@ -1,8 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
 
-const PARENT_PIN = "2027";
-
 export default function Home() {
   const cards = [
     { href:"/planning", icon:"📅", title:"Planning", desc:"Emploi du temps jour par jour", color:"#6366f1" },
@@ -12,32 +10,22 @@ export default function Home() {
   ];
 
   const [tapCount, setTapCount] = useState(0);
-  const [showPin, setShowPin] = useState(false);
-  const [pin, setPin] = useState("");
-  const [error, setError] = useState(false);
-  const tapTimer = useRef(null);
+  const lastTap = useRef(0);
 
   const handleLogoTap = () => {
-    if (tapTimer.current) clearTimeout(tapTimer.current);
-    const next = tapCount + 1;
-    setTapCount(next);
-    if (next >= 5) {
-      setShowPin(true);
-      setTapCount(0);
+    const now = Date.now();
+    if (now - lastTap.current > 1200) {
+      // trop de temps écoulé depuis le dernier tap → on repart de 1
+      setTapCount(1);
     } else {
-      tapTimer.current = setTimeout(() => setTapCount(0), 1500);
+      const next = tapCount + 1;
+      setTapCount(next);
+      if (next >= 5) {
+        window.location.href = "/rapport";
+        return;
+      }
     }
-  };
-
-  const tryUnlock = () => {
-    if (pin === PARENT_PIN) {
-      try { sessionStorage.setItem("parent_ok", "1"); } catch {}
-      window.location.href = "/rapport";
-    } else {
-      setError(true);
-      setPin("");
-      setTimeout(() => setError(false), 800);
-    }
+    lastTap.current = now;
   };
 
   return (
@@ -60,18 +48,6 @@ export default function Home() {
         <div style={{ fontSize:12, color:"#fca5a5" }}>Bac = 40% CC + 60% épreuves. 100% devoirs rendus à temps. 14j min entre 2 devoirs même matière.</div>
       </div>
       <div style={{ textAlign:"center", fontSize:11, color:"#475569", marginTop:20 }}>v3.1</div>
-
-      {showPin && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", zIndex:100, display:"flex", flexDirection:"column", justifyContent:"center", alignItems:"center" }} onClick={() => setShowPin(false)}>
-          <div onClick={e => e.stopPropagation()} style={{ display:"flex", flexDirection:"column", alignItems:"center" }}>
-            <div style={{ fontSize:36, marginBottom:14 }}>🔒</div>
-            <input type="password" inputMode="numeric" value={pin} onChange={e => setPin(e.target.value)} onKeyDown={e => e.key === "Enter" && tryUnlock()}
-              autoFocus placeholder="••••"
-              style={{ width:140, padding:14, borderRadius:10, border:`2px solid ${error ? "#ef4444" : "#334155"}`, background:"#1e293b", color:"#e2e8f0", fontSize:20, textAlign:"center", letterSpacing:6, marginBottom:14 }} />
-            <button onClick={tryUnlock} style={{ padding:"10px 24px", borderRadius:10, border:"none", background:"#6366f1", color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer" }}>Déverrouiller</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
