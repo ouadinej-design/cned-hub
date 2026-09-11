@@ -458,13 +458,15 @@ function Reglages({ profConfig, onClose, onSaved }) {
   const [exDesc, setExDesc] = useState("Séance supplémentaire avec le prof");
   const [exSaved, setExSaved] = useState(false);
 
+  const [saveError, setSaveError] = useState("");
   const save = async () => {
-    setSaving(true);
-    await supabase.from("prof_config").upsert([
-      { matiere: "MA", ...ma },
-      { matiere: "FR", ...fr },
+    setSaving(true); setSaveError("");
+    const { error } = await supabase.from("prof_config").upsert([
+      { matiere: "MA", jour: ma.jour, heure_debut: ma.heure_debut, heure_fin: ma.heure_fin, tentative: !!ma.tentative },
+      { matiere: "FR", jour: fr.jour, heure_debut: fr.heure_debut, heure_fin: fr.heure_fin, tentative: !!fr.tentative },
     ], { onConflict: "matiere" });
     setSaving(false);
+    if (error) { setSaveError("Erreur : " + error.message); return; }
     onSaved();
     onClose();
   };
@@ -528,6 +530,7 @@ function Reglages({ profConfig, onClose, onSaved }) {
           </div>
 
           <button onClick={save} disabled={saving} style={{ width:"100%", padding:12, borderRadius:10, border:"none", background:"#22c55e", color:"#fff", fontWeight:700, fontSize:14, cursor:"pointer" }}>{saving ? "Enregistrement..." : "✓ Enregistrer les horaires fixes"}</button>
+          {saveError && <div style={{ marginTop:8, padding:10, background:"rgba(239,68,68,.1)", borderRadius:8, fontSize:12, color:"#fca5a5" }}>{saveError}</div>}
         </div>)}
 
         {tab === "extra" && (<div>
