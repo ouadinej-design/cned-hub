@@ -56,7 +56,7 @@ export default function PlanningPage() {
   };
   const loadSlotDone = async () => {
     const { data } = await supabase.from("slot_done").select("event_date,matiere,slot_time,done");
-    const map = {}; (data||[]).forEach(r => { if(r.done) map[`${r.event_date}__${r.matiere}__${r.slot_time}`] = true; });
+    const map = {}; (data||[]).forEach(r => { map[`${r.event_date}__${r.matiere}__${r.slot_time}`] = r.done; });
     setStoredState(map);
   };
   const loadAbsences = async () => {
@@ -75,10 +75,11 @@ export default function PlanningPage() {
     return () => clearInterval(iv);
   }, []);
 
-  const toggleSlot = async (ds, matiere, time, current) => {
+  const toggleSlot = async (ds, matiere, time, currentDisplayed) => {
     const key = `${ds}__${matiere}__${time}`;
-    setStoredState(s => { const n = { ...s }; if (!current) n[key] = true; else delete n[key]; return n; });
-    await supabase.from("slot_done").upsert({ event_date: ds, matiere, slot_time: time, done: !current, ts: Date.now() }, { onConflict: "event_date,matiere,slot_time" });
+    const newVal = !currentDisplayed; // le clic inverse toujours ce qui est affiché à l'écran, même si c'était coché automatiquement
+    setStoredState(s => ({ ...s, [key]: newVal }));
+    await supabase.from("slot_done").upsert({ event_date: ds, matiere, slot_time: time, done: newVal, ts: Date.now() }, { onConflict: "event_date,matiere,slot_time" });
   };
   const saveReasonFor = async (ds, matiere, time, reason) => {
     const key = `${ds}__${matiere}__${time}`;
@@ -194,9 +195,15 @@ export default function PlanningPage() {
     return { type:"normal", slots };
   };
   const hasActivity = (dateStr, matiere) => !!(activity[dateStr] && activity[dateStr][matiere]);
+  // L'état manuel (coché/décoché explicitement) prime toujours sur la détection automatique
+  const isSlotDone = (ds, s) => {
+    const key = slotKey(ds, s);
+    if (Object.prototype.hasOwnProperty.call(stored, key)) return stored[key];
+    return !s.prof && hasActivity(ds, s.matiere);
+  };
   const dayFullyDone = (date) => { const ds = formatDate(date); const sch = getSchedule(date); if (sch.type !== "normal" || !sch.slots) return false; const matieres = [...new Set(sch.slots.filter(s=>!s.prof).map(s=>s.matiere))]; return matieres.length>0 && matieres.every(m => hasActivity(ds, m)); };
   const slotKey = (ds, s) => `${ds}__${s.matiere}__${s.time}`;
-  const allSlotsDone = (date) => { const ds = formatDate(date); const sch = getSchedule(date); if (sch.type !== "normal" || !sch.slots || sch.slots.length===0) return false; return sch.slots.every(s => (!s.prof && hasActivity(ds, s.matiere)) || !!stored[slotKey(ds, s)]); };
+  const allSlotsDone = (date) => { const ds = formatDate(date); const sch = getSchedule(date); if (sch.type !== "normal" || !sch.slots || sch.slots.length===0) return false; return sch.slots.every(s => isSlotDone(ds, s)); };
 
 
   // --- RATTRAPAGE : redistribute absent day's slots to remaining days ---
@@ -281,13 +288,11 @@ export default function PlanningPage() {
         {!isAbs && sch.slots && sch.slots.map((s,i) => {
           const m = MATIERES[s.matiere]; const col = m?.color||"#6366f1";
           const cursDone = !s.prof && hasActivity(ds, s.matiere);
-          const sk = slotKey(ds, s);
-          const manualDone = !!stored[sk];
-          const doneSlot = cursDone || manualDone;
+          const doneSlot = isSlotDone(ds, s);
           const cursHref = {FR:"/cours/francais",MA:"/cours/maths",SE:"/cours/ses",HG:"/cours/hggsp",HI:"/cours/histgeo",EM:"/cours/emc",SC:"/cours/enssci",AN:"/cours/anglais",ES:"/cours/espagnol"}[s.matiere];
           return (
             <div key={i} style={{ display:"flex", alignItems:"stretch", gap:8, marginBottom:8 }}>
-              <button onClick={() => toggleSlot(ds, s.matiere, s.time, manualDone)}
+              <button onClick={() => toggleSlot(ds, s.matiere, s.time, doneSlot)}
                 style={{ width:30, borderRadius:10, border:`2px solid ${doneSlot?"#22c55e":"#334155"}`, background:doneSlot?"#22c55e":"transparent", color:"#fff", fontSize:15, fontWeight:800, cursor:"pointer", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
                 {doneSlot ? "✓" : ""}
               </button>
@@ -308,7 +313,7 @@ export default function PlanningPage() {
           );
         })}
 
-        {!isAbs && sch.slots && sch.slots.filter(s => !s.prof && formatDate(sel) < formatDate(new Date()) && !((!s.prof && hasActivity(ds, s.matiere)) || !!stored[slotKey(ds, s)])).map((s, i) => (
+        {!isAbs && sch.slots && sch.slots.filter(s => !s.prof && formatDate(sel) < formatDate(new Date()) && !isSlotDone(ds, s)).map((s, i) => (
           <MotifInput key={"motif-"+i} ds={ds} matiere={s.matiere} time={s.time} label={`${MATIERES[s.matiere]?.nom||s.matiere} — ${s.time}`} existing={reasons[`${ds}__${s.matiere}__${s.time}`]} onSave={saveReasonFor} />
         ))}
 
@@ -404,7 +409,7 @@ export default function PlanningPage() {
               {!isAbs && sch.type==="bac" && <span style={{ fontSize:12, color:"#ef4444", fontWeight:700 }}>🎯 BAC BLANC — Fr + Ma</span>}
               {!isAbs && sch.type==="normal" && <div>
                 <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-                  {(sch.slots||[]).map((s,si) => { const m=MATIERES[s.matiere]; const cd=!s.prof && hasActivity(ds, s.matiere); return (
+                  {(sch.slots||[]).map((s,si) => { const m=MATIERES[s.matiere]; const cd=isSlotDone(ds, s); return (
                     <span key={si} style={{ fontSize:9, fontWeight:600, padding:"2px 6px", borderRadius:4, background:cd?"rgba(34,197,94,.2)":s.prof?"#fbbf24":m?.bg||"#334155", color:cd?"#22c55e":s.prof?"#78350f":m?.text||"#94a3b8" }}>{cd?"✅ ":s.prof?"📚 ":""}{m?.court||s.matiere}</span>
                   ); })}
                   {rattrapage.length>0 && <span style={{ fontSize:9, fontWeight:600, padding:"2px 6px", borderRadius:4, background:"rgba(251,191,36,.2)", color:"#fbbf24" }}>+{rattrapage.length} rattrapage</span>}
