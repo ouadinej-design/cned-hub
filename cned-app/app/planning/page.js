@@ -289,7 +289,8 @@ export default function PlanningPage() {
           const m = MATIERES[s.matiere]; const col = m?.color||"#6366f1";
           const cursDone = !s.prof && hasActivity(ds, s.matiere);
           const doneSlot = isSlotDone(ds, s);
-          const cursHref = {FR:"/cours/francais",MA:"/cours/maths",SE:"/cours/ses",HG:"/cours/hggsp",HI:"/cours/histgeo",EM:"/cours/emc",SC:"/cours/enssci",AN:"/cours/anglais",ES:"/cours/espagnol"}[s.matiere];
+          const isBilan = (s.desc||"").toLowerCase().includes("bilan");
+          const cursHref = isBilan ? `/cours/bilan?matiere=${s.matiere}` : {FR:"/cours/francais",MA:"/cours/maths",SE:"/cours/ses",HG:"/cours/hggsp",HI:"/cours/histgeo",EM:"/cours/emc",SC:"/cours/enssci",AN:"/cours/anglais",ES:"/cours/espagnol"}[s.matiere];
           return (
             <div key={i} style={{ display:"flex", alignItems:"stretch", gap:8, marginBottom:8 }}>
               <button onClick={() => toggleSlot(ds, s.matiere, s.time, doneSlot)}

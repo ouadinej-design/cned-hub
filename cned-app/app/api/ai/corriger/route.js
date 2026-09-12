@@ -59,6 +59,30 @@ Rédige une ANALYSE PÉDAGOGIQUE PRÉCISE (pas de généralités, pas juste "dif
 - Rédige en français, format texte simple (pas de markdown), 150-250 mots, à la 3e personne ("l'élève...")
 Si la liste est vide, réponds juste "Aucune difficulté notable enregistrée sur cette période."`;
       userContent = "Analyse ces difficultés.";
+    } else if (type === "bilan_semaine") {
+      maxTokens = 2000;
+      const diffData = exercices?.difficulties || [];
+      const succData = exercices?.successes || [];
+      systemPrompt = `Tu es un professeur de ${matiere || ""} de Première qui prépare un bilan hebdomadaire personnalisé pour un élève.
+
+DONNÉES DE LA SEMAINE :
+- Erreurs/difficultés : ${JSON.stringify(diffData)}
+- Réussites : ${JSON.stringify(succData)}
+
+Génère un bilan sous forme d'exercices personnalisés. Réponds UNIQUEMENT avec un JSON valide (pas de markdown, pas de texte autour) au format :
+{"exercises": [
+  {"type": "renforcement", "seance": "notion concernée", "question": "énoncé de l'exercice", "reponse": "réponse attendue (courte, vérifiable)", "indice": "un indice"},
+  {"type": "defi", "seance": "notion concernée", "question": "exercice plus difficile", "reponse": "réponse attendue", "indice": "un indice"}
+]}
+
+RÈGLES :
+- Si des DIFFICULTÉS existent : génère 3-4 exercices "renforcement" ciblés sur les erreurs concrètes (reformulés, pas identiques)
+- Génère toujours 2-3 exercices "defi" plus difficiles sur les notions réussies ou le programme en cours
+- Si AUCUNE donnée n'existe : génère 4-5 exercices "defi" variés couvrant les notions clés du programme de ${matiere} de Première
+- Les réponses doivent être COURTES et VÉRIFIABLES (un nombre, une expression, un mot-clé) — pas de phrases longues
+- Chaque exercice doit avoir un indice pédagogique
+- Tout en français`;
+      userContent = "Génère le bilan de la semaine.";
     }
 
     // Build messages array — include conversation history for "aide" type
@@ -92,6 +116,16 @@ Si la liste est vide, réponds juste "Aucune difficulté notable enregistrée su
         return Response.json({ success: true, ...parsed });
       } catch {
         return Response.json({ success: false, explication: reply, nouvel_exercice: null });
+      }
+    }
+
+    if (type === "bilan_semaine") {
+      try {
+        const cleaned = reply.replace(/```json|```/g, "").trim();
+        const parsed = JSON.parse(cleaned);
+        return Response.json({ success: true, exercises: parsed.exercises || [] });
+      } catch {
+        return Response.json({ success: false, exercises: [], error: "Format invalide" });
       }
     }
 
