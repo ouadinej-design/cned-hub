@@ -86,7 +86,15 @@ const SEANCES = [
     exercises: [
       { q: "α pour f(x)=x²−6x+5 ?", answer: "3", hint: "α = 6/2 = 3", level: 1 },
       { q: "β pour f(x)=x²−6x+5 ?", answer: "-4", hint: "β = f(3) = 9−18+5", level: 2 },
-      { q: "Forme canonique de x²−6x+5 ?", answer: "(x-3)²-4", hint: "a(x−α)²+β", level: 2 }
+      { q: "Forme canonique de x²−6x+5 ?", answer: "(x-3)²-4", hint: "a(x−α)²+β", level: 2 },
+      { q: "Forme canonique de 3x²+12x−7 ?", answer: "3(x+2)²-19", hint: "α=−12/6=−2, β=12−24−7=−19", level: 3 },
+      { q: "Forme canonique de −2x²+5x+1 ?", answer: "-2(x-5/4)²+33/8", hint: "α=−5/(2×−2)=5/4, β=f(5/4)=33/8", level: 3 },
+      { q: "α et β pour f(x)=½x²−3x+4 ? (réponse: α;β)", answer: "3;-1/2", hint: "α=3/(2×½)=3, β=½×9−9+4=−½", level: 3 },
+      { q: "f(x)=ax²+bx+c, sommet S(2;−3), f(0)=5. a=?", answer: "2", hint: "c=5, β=a(0−2)²−3=5 → 4a=8", level: 3 },
+      { q: "f(x)=−3x²+18x−25. Maximum = ?", answer: "2", hint: "α=−18/−6=3, β=−27+54−25=2", level: 3 },
+      { q: "f(x)=4x²−2x+1. Forme canonique ?", answer: "4(x-1/4)²+3/4", hint: "α=2/8=1/4, β=4/16−2/4+1=3/4", level: 3 },
+      { q: "f(x)=−x²+4x−k. Max=7, k=?", answer: "-3", hint: "α=2, max=−4+8−k=4−k=7 → k=−3", level: 3 },
+      { q: "Montrer que 2x²−8x+11>0 : minimum = ?", answer: "3", hint: "2(x−2)²+3, min=3>0 donc toujours positif", level: 3 }
     ],
     quiz: [
       { q: "α = ?", options: ["−b/(2a)", "b/(2a)", "−c/a", "Δ/(2a)"], correct: 0 },
