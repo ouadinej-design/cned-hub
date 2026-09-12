@@ -6,17 +6,37 @@ import { supabase } from "../../../lib/supabase";
 // ── Normalisation MEN (Ministère Éducation Nationale) ──
 function normalizeAnswer(s) {
   if (!s) return "";
-  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "").replace(/[''ʼ]/g, "'").replace(/[""«»]/g, "").replace(/[;,\.]+$/g, "").replace(/×/g, "*").replace(/÷/g, "/").replace(/[−–]/g, "-").replace(/\^2/g, "²").replace(/\*\*/g, "^").trim();
+  return s
+    .toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, "")
+    .replace(/[\u2018\u2019\u02BC]/g, "'")
+    .replace(/[\u201C\u201D\u00AB\u00BB]/g, "")
+    .replace(/[;,\.]+$/g, "")
+    .replace(/\u00D7/g, "*")
+    .replace(/\u00F7/g, "/")
+    .replace(/[\u2212\u2013]/g, "-")
+    .replace(/\^2/g, "\u00B2")
+    .replace(/\*\*/g, "^")
+    .trim();
 }
 function checkAnswer(userAns, correctAns) {
   const a = normalizeAnswer(userAns), c = normalizeAnswer(correctAns);
   if (!a) return false;
   if (a === c) return true;
-  const ap = a.split(/[;,]/).map(p=>p.trim()).sort().join(",");
-  const cp = c.split(/[;,]/).map(p=>p.trim()).sort().join(",");
-  if (ap === cp) return true;
-  if (a.includes(c) || c.includes(a)) return true;
+  // Virgule/point décimal interchangeables
   if (a.replace(/,/g, ".") === c.replace(/,/g, ".")) return true;
+  // Ordre des parties (a=2,b=3 vs b=3,a=2)
+  const ap = a.split(/[;,]/).map(p=>p.trim()).filter(Boolean).sort().join(",");
+  const cp = c.split(/[;,]/).map(p=>p.trim()).filter(Boolean).sort().join(",");
+  if (ap === cp) return true;
+  // Tolérance inclusion (réponse contient l'attendu ou vice-versa)
+  if (a.length > 2 && c.length > 2 && (a.includes(c) || c.includes(a))) return true;
+  // "le" / "la" / "les" / "l'" optionnels en début
+  const stripArticle = s => s.replace(/^(le|la|les|l'|un|une|des|du)/, "");
+  if (stripArticle(a) === stripArticle(c)) return true;
+  // Pluriel tolérant (s final optionnel)
+  if (a+"s" === c || a === c+"s") return true;
   return false;
 }
 
@@ -257,7 +277,7 @@ function Exos({ s, mark }) {
         <input value={ans[gi]||""} onChange={e => setAns({...ans,[gi]:e.target.value})} placeholder="Ta réponse..."
           style={{ width:"100%", padding:10, borderRadius:8, border:"1px solid #334155", background:"#0f172a", color:"#e2e8f0", fontSize:14, boxSizing:"border-box" }} />
         <div style={{ display:"flex", gap:8, marginTop:10 }}>
-          <button onClick={() => { const ok=checkAnswer(ans[gi]||"", ex.answer); setRes({...res,[gi]:ok}); if(!ok) logDifficulty("Histoire-Géographie", s.title, ex.q, ans[gi]||"(vide)", ex.answer, ex.hint); fetch("/api/ai/corriger", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ type:"erreur_analyse", matiere:"Histoire-Géographie", question:ex.q, reponse:ans[gi]||"(vide)", exercices:ex.answer }) }).then(r=>r.json()).then(d=>{ if(d.reply) setErrMsgs(m=>({...m,[gi]:d.reply})); }).catch(()=>{}); supabase.from("attempts_log").insert({ event_date:new Date().toISOString().split("T")[0], matiere:"HI", seance:s.title, type:"exercice", identifier:ex.q, correct:ok, ts:Date.now() }).then(()=>{},()=>{}); }}
+          <button onClick={() => { const ok=checkAnswer(ans[gi]||"", ex.answer); setRes({...res,[gi]:ok}); if(!ok) { logDifficulty("Histoire-Géographie", s.title, ex.q, ans[gi]||"(vide)", ex.answer, ex.hint); fetch("/api/ai/corriger", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ type:"erreur_analyse", matiere:"Histoire-Géographie", question:ex.q, reponse:ans[gi]||"(vide)", exercices:ex.answer }) }).then(r=>r.json()).then(d=>{ if(d.reply) setErrMsgs(m=>({...m,[gi]:d.reply})); }).catch(()=>{}); } supabase.from("attempts_log").insert({ event_date:new Date().toISOString().split("T")[0], matiere:"HI", seance:s.title, type:"exercice", identifier:ex.q, correct:ok, ts:Date.now() }).then(()=>{},()=>{}); }}
             style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#f97316", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Vérifier</button>
           {r===false && <button onClick={() => alert("💡 "+ex.hint)} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#ea580c", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Indice</button>}
         {r===false && <button onClick={() => demanderReexplication(gi, ex)} disabled={reexp[gi]?.loading} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#8b5cf6", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>{reexp[gi]?.loading ? "..." : "🔄 Autre explication"}</button>}

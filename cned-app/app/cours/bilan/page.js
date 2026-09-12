@@ -19,17 +19,37 @@ const MATIERE_MAP = {
 // ── Normalisation MEN (Ministère Éducation Nationale) ──
 function normalizeAnswer(s) {
   if (!s) return "";
-  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "").replace(/[''ʼ]/g, "'").replace(/[""«»]/g, "").replace(/[;,\.]+$/g, "").replace(/×/g, "*").replace(/÷/g, "/").replace(/[−–]/g, "-").replace(/\^2/g, "²").replace(/\*\*/g, "^").trim();
+  return s
+    .toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, "")
+    .replace(/[\u2018\u2019\u02BC]/g, "'")
+    .replace(/[\u201C\u201D\u00AB\u00BB]/g, "")
+    .replace(/[;,\.]+$/g, "")
+    .replace(/\u00D7/g, "*")
+    .replace(/\u00F7/g, "/")
+    .replace(/[\u2212\u2013]/g, "-")
+    .replace(/\^2/g, "\u00B2")
+    .replace(/\*\*/g, "^")
+    .trim();
 }
 function checkAnswer(userAns, correctAns) {
   const a = normalizeAnswer(userAns), c = normalizeAnswer(correctAns);
   if (!a) return false;
   if (a === c) return true;
-  const ap = a.split(/[;,]/).map(p=>p.trim()).sort().join(",");
-  const cp = c.split(/[;,]/).map(p=>p.trim()).sort().join(",");
-  if (ap === cp) return true;
-  if (a.includes(c) || c.includes(a)) return true;
+  // Virgule/point décimal interchangeables
   if (a.replace(/,/g, ".") === c.replace(/,/g, ".")) return true;
+  // Ordre des parties (a=2,b=3 vs b=3,a=2)
+  const ap = a.split(/[;,]/).map(p=>p.trim()).filter(Boolean).sort().join(",");
+  const cp = c.split(/[;,]/).map(p=>p.trim()).filter(Boolean).sort().join(",");
+  if (ap === cp) return true;
+  // Tolérance inclusion (réponse contient l'attendu ou vice-versa)
+  if (a.length > 2 && c.length > 2 && (a.includes(c) || c.includes(a))) return true;
+  // "le" / "la" / "les" / "l'" optionnels en début
+  const stripArticle = s => s.replace(/^(le|la|les|l'|un|une|des|du)/, "");
+  if (stripArticle(a) === stripArticle(c)) return true;
+  // Pluriel tolérant (s final optionnel)
+  if (a+"s" === c || a === c+"s") return true;
   return false;
 }
 
