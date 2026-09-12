@@ -379,7 +379,7 @@ function AiChat({ ctx, txt }) {
     const u = q.trim(); setQ(""); setMsgs(m=>[...m,{r:"user",t:u}]); setLd(true);
     try {
       const r = await fetch("/api/ai/corriger", { method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ type:"aide", question:u, reponse:u, section:ctx, cours:txt, matiere:"Maths" }) });
+        body: JSON.stringify({ type:"aide", question:u, reponse:u, section:ctx, cours:txt, matiere:"Maths", history:msgs }) });
       const d = await r.json();
       setMsgs(m=>[...m,{r:"ai",t:d.reply||"Erreur."}]);
     } catch { setMsgs(m=>[...m,{r:"ai",t:"Erreur de connexion."}]); }

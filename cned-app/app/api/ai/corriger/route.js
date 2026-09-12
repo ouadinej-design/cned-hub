@@ -4,7 +4,7 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function POST(request) {
   try {
-    const { type, question, reponse, section, cours, matiere, exercices } = await request.json();
+    const { type, question, reponse, section, cours, matiere, exercices, history } = await request.json();
 
     let systemPrompt = "";
     let maxTokens = 400;
@@ -61,11 +61,26 @@ Si la liste est vide, réponds juste "Aucune difficulté notable enregistrée su
       userContent = "Analyse ces difficultés.";
     }
 
+    // Build messages array — include conversation history for "aide" type
+    let apiMessages;
+    if (type === "aide" && Array.isArray(history) && history.length > 0) {
+      apiMessages = history.map(m => ({
+        role: m.r === "user" ? "user" : "assistant",
+        content: m.t
+      }));
+      // Ensure it starts with user and alternates properly
+      if (apiMessages[0].role !== "user") apiMessages.shift();
+      // Add current question
+      apiMessages.push({ role: "user", content: userContent });
+    } else {
+      apiMessages = [{ role: "user", content: userContent }];
+    }
+
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: maxTokens,
       system: systemPrompt,
-      messages: [{ role: "user", content: userContent }],
+      messages: apiMessages,
     });
 
     const reply = message.content.map((b) => b.text || "").join("");
