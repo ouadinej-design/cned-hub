@@ -15,6 +15,24 @@ const MATIERE_MAP = {
   EM: { nom: "EMC", color: "#a855f7", icon: "⚖️", cours: "/cours/emc" },
 };
 
+
+// ── Normalisation MEN (Ministère Éducation Nationale) ──
+function normalizeAnswer(s) {
+  if (!s) return "";
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "").replace(/[''ʼ]/g, "'").replace(/[""«»]/g, "").replace(/[;,\.]+$/g, "").replace(/×/g, "*").replace(/÷/g, "/").replace(/[−–]/g, "-").replace(/\^2/g, "²").replace(/\*\*/g, "^").trim();
+}
+function checkAnswer(userAns, correctAns) {
+  const a = normalizeAnswer(userAns), c = normalizeAnswer(correctAns);
+  if (!a) return false;
+  if (a === c) return true;
+  const ap = a.split(/[;,]/).map(p=>p.trim()).sort().join(",");
+  const cp = c.split(/[;,]/).map(p=>p.trim()).sort().join(",");
+  if (ap === cp) return true;
+  if (a.includes(c) || c.includes(a)) return true;
+  if (a.replace(/,/g, ".") === c.replace(/,/g, ".")) return true;
+  return false;
+}
+
 function getWeekDates() {
   const now = new Date();
   const dates = [];
@@ -74,9 +92,7 @@ function BilanExercise({ exercise, index, color }) {
   const [showHint, setShowHint] = useState(false);
 
   const check = () => {
-    const a = answer.trim().toLowerCase().replace(/\s+/g, "");
-    const c = exercise.reponse.trim().toLowerCase().replace(/\s+/g, "");
-    const ok = a === c || a.includes(c) || c.includes(a);
+    const ok = checkAnswer(answer, exercise.reponse);
     setResult(ok);
   };
 

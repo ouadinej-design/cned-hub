@@ -2,6 +2,24 @@
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 
+
+// ── Normalisation MEN (Ministère Éducation Nationale) ──
+function normalizeAnswer(s) {
+  if (!s) return "";
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "").replace(/[''ʼ]/g, "'").replace(/[""«»]/g, "").replace(/[;,\.]+$/g, "").replace(/×/g, "*").replace(/÷/g, "/").replace(/[−–]/g, "-").replace(/\^2/g, "²").replace(/\*\*/g, "^").trim();
+}
+function checkAnswer(userAns, correctAns) {
+  const a = normalizeAnswer(userAns), c = normalizeAnswer(correctAns);
+  if (!a) return false;
+  if (a === c) return true;
+  const ap = a.split(/[;,]/).map(p=>p.trim()).sort().join(",");
+  const cp = c.split(/[;,]/).map(p=>p.trim()).sort().join(",");
+  if (ap === cp) return true;
+  if (a.includes(c) || c.includes(a)) return true;
+  if (a.replace(/,/g, ".") === c.replace(/,/g, ".")) return true;
+  return false;
+}
+
 function logActivity(matiere) {
   const today = new Date().toISOString().split("T")[0];
   try {
@@ -210,7 +228,7 @@ function Exos({ s, mark }) {
         <input value={ans[gi]||""} onChange={e => setAns({...ans,[gi]:e.target.value})} placeholder="Ta réponse..."
           style={{ width:"100%", padding:10, borderRadius:8, border:"1px solid #334155", background:"#0f172a", color:"#e2e8f0", fontSize:14, boxSizing:"border-box" }} />
         <div style={{ display:"flex", gap:8, marginTop:10 }}>
-          <button onClick={() => { const a=(ans[gi]||"").toLowerCase().replace(/\s/g,""); const c=ex.answer.toLowerCase().replace(/\s/g,""); const ok=a===c||a.includes(c)||c.includes(a); setRes({...res,[gi]:ok}); if(!ok) logDifficulty("Espagnol", s.title, ex.q, ans[gi]||"(vide)", ex.answer, ex.hint); supabase.from("attempts_log").insert({ event_date:new Date().toISOString().split("T")[0], matiere:"ES", seance:s.title, type:"exercice", identifier:ex.q, correct:ok, ts:Date.now() }).then(()=>{},()=>{}); }}
+          <button onClick={() => { const ok=checkAnswer(ans[gi]||"", ex.answer); setRes({...res,[gi]:ok}); if(!ok) logDifficulty("Espagnol", s.title, ex.q, ans[gi]||"(vide)", ex.answer, ex.hint); supabase.from("attempts_log").insert({ event_date:new Date().toISOString().split("T")[0], matiere:"ES", seance:s.title, type:"exercice", identifier:ex.q, correct:ok, ts:Date.now() }).then(()=>{},()=>{}); }}
             style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#ef4444", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Vérifier</button>
           {r===false && <button onClick={() => alert("💡 "+ex.hint)} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#dc2626", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Indice</button>}
         {r===false && <button onClick={() => demanderReexplication(gi, ex)} disabled={reexp[gi]?.loading} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#8b5cf6", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>{reexp[gi]?.loading ? "..." : "🔄 Autre explication"}</button>}
