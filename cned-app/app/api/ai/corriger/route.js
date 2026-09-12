@@ -59,6 +59,19 @@ Rédige une ANALYSE PÉDAGOGIQUE PRÉCISE (pas de généralités, pas juste "dif
 - Rédige en français, format texte simple (pas de markdown), 150-250 mots, à la 3e personne ("l'élève...")
 Si la liste est vide, réponds juste "Aucune difficulté notable enregistrée sur cette période."`;
       userContent = "Analyse ces difficultés.";
+    } else if (type === "erreur_analyse") {
+      maxTokens = 200;
+      systemPrompt = `Tu es un professeur de ${matiere || ""} bienveillant mais exigeant pour un élève de Première.
+L'élève a répondu à cette question : "${question}"
+Sa réponse : "${reponse}"
+La bonne réponse : "${exercices}"
+
+En 1-2 phrases COURTES et DIRECTES, explique :
+1. L'erreur précise qu'il a commise (ce qu'il a confondu, oublié, ou mal appliqué)
+2. La règle ou l'astuce à retenir pour ne plus la refaire
+
+Sois précis et pédagogique. Pas de "bravo" ni de "courage". Pas de markdown. Commence directement par l'explication de l'erreur.`;
+      userContent = "Analyse cette erreur.";
     } else if (type === "bilan_semaine") {
       maxTokens = 2000;
       const diffData = exercices?.difficulties || [];

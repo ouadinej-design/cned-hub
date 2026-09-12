@@ -222,6 +222,7 @@ function Cours({ s, li, setLi, mark }) {
 function Exos({ s, mark }) {
   const [ans, setAns] = useState({});
   const [res, setRes] = useState({});
+  const [errMsgs, setErrMsgs] = useState({});
   const [fl, setFl] = useState(0);
   const [extraExs, setExtraExs] = useState([]);
   const [reexp, setReexp] = useState({}); // gi -> {loading, explication, nouvel_exercice}
@@ -256,11 +257,14 @@ function Exos({ s, mark }) {
         <input value={ans[gi]||""} onChange={e => setAns({...ans,[gi]:e.target.value})} placeholder="Ta réponse..."
           style={{ width:"100%", padding:10, borderRadius:8, border:"1px solid #334155", background:"#0f172a", color:"#e2e8f0", fontSize:14, boxSizing:"border-box" }} />
         <div style={{ display:"flex", gap:8, marginTop:10 }}>
-          <button onClick={() => { const ok=checkAnswer(ans[gi]||"", ex.answer); setRes({...res,[gi]:ok}); if(!ok) logDifficulty("Histoire-Géographie", s.title, ex.q, ans[gi]||"(vide)", ex.answer, ex.hint); supabase.from("attempts_log").insert({ event_date:new Date().toISOString().split("T")[0], matiere:"HI", seance:s.title, type:"exercice", identifier:ex.q, correct:ok, ts:Date.now() }).then(()=>{},()=>{}); }}
+          <button onClick={() => { const ok=checkAnswer(ans[gi]||"", ex.answer); setRes({...res,[gi]:ok}); if(!ok) logDifficulty("Histoire-Géographie", s.title, ex.q, ans[gi]||"(vide)", ex.answer, ex.hint); fetch("/api/ai/corriger", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ type:"erreur_analyse", matiere:"Histoire-Géographie", question:ex.q, reponse:ans[gi]||"(vide)", exercices:ex.answer }) }).then(r=>r.json()).then(d=>{ if(d.reply) setErrMsgs(m=>({...m,[gi]:d.reply})); }).catch(()=>{}); supabase.from("attempts_log").insert({ event_date:new Date().toISOString().split("T")[0], matiere:"HI", seance:s.title, type:"exercice", identifier:ex.q, correct:ok, ts:Date.now() }).then(()=>{},()=>{}); }}
             style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#f97316", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Vérifier</button>
           {r===false && <button onClick={() => alert("💡 "+ex.hint)} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#ea580c", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Indice</button>}
         {r===false && <button onClick={() => demanderReexplication(gi, ex)} disabled={reexp[gi]?.loading} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#8b5cf6", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>{reexp[gi]?.loading ? "..." : "🔄 Autre explication"}</button>}
-        </div>{r===false && <div style={{ marginTop:8, padding:10, background:"rgba(239,68,68,.1)", borderRadius:8, fontSize:13, color:"#fca5a5" }}>Réponse : {ex.answer}</div>}
+        </div>{r===false && <div style={{ marginTop:8, padding:12, background:"rgba(239,68,68,.08)", borderRadius:10, fontSize:13, border:"1px solid rgba(239,68,68,.2)" }}>
+          <div style={{ color:"#fca5a5", marginBottom:6 }}>Réponse attendue : <strong style={{ color:"#e2e8f0" }}>{ex.answer}</strong></div>
+          {errMsgs[gi] ? <div style={{ color:"#fbbf24", fontSize:12, lineHeight:1.5 }}>⚠️ <strong>L'erreur à ne plus refaire :</strong> {errMsgs[gi]}</div> : <div style={{ color:"#64748b", fontSize:11 }}>🔍 Analyse en cours...</div>}
+        </div>}
         {reexp[gi] && !reexp[gi].loading && reexp[gi].explication && (
           <div style={{ marginTop:8, padding:12, background:"rgba(139,92,246,.1)", borderRadius:8, borderLeft:"3px solid #8b5cf6" }}>
             <div style={{ fontSize:11, fontWeight:700, color:"#c4b5fd", marginBottom:4 }}>🔄 Vu autrement</div>

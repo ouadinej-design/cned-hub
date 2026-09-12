@@ -329,6 +329,7 @@ function Cours({ s, li, setLi, mark }) {
 function Exos({ s, mark }) {
   const [ans, setAns] = useState({});
   const [res, setRes] = useState({});
+  const [errMsgs, setErrMsgs] = useState({});
   const [fl, setFl] = useState(0);
   const exs = fl===0 ? s.exercises : s.exercises.filter(e => e.level===fl);
   useEffect(() => { if (Object.keys(res).length >= s.exercises.length) mark(s.id, "exercises"); }, [res]);
@@ -346,11 +347,14 @@ function Exos({ s, mark }) {
         <input value={ans[gi]||""} onChange={e => setAns({...ans,[gi]:e.target.value})} placeholder="Ta réponse..."
           style={{ width:"100%", padding:10, borderRadius:8, border:"1px solid #334155", background:"#0f172a", color:"#e2e8f0", fontSize:14, boxSizing:"border-box" }} />
         <div style={{ display:"flex", gap:8, marginTop:10 }}>
-          <button onClick={() => { const ok=checkAnswer(ans[gi]||"", ex.answer); setRes({...res,[gi]:ok}); if(!ok) logDifficulty("Maths", s.title, ex.q, ans[gi]||"(vide)", ex.answer, ex.hint); supabase.from("attempts_log").insert({ event_date:new Date().toISOString().split("T")[0], matiere:"MA", seance:s.title, type:"exercice", identifier:ex.q, correct:ok, ts:Date.now() }).then(()=>{},()=>{}); }}
+          <button onClick={() => { const ok=checkAnswer(ans[gi]||"", ex.answer); setRes({...res,[gi]:ok}); if(!ok) logDifficulty("Maths", s.title, ex.q, ans[gi]||"(vide)", ex.answer, ex.hint); fetch("/api/ai/corriger", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ type:"erreur_analyse", matiere:"Maths", question:ex.q, reponse:ans[gi]||"(vide)", exercices:ex.answer }) }).then(r=>r.json()).then(d=>{ if(d.reply) setErrMsgs(m=>({...m,[gi]:d.reply})); }).catch(()=>{}); supabase.from("attempts_log").insert({ event_date:new Date().toISOString().split("T")[0], matiere:"MA", seance:s.title, type:"exercice", identifier:ex.q, correct:ok, ts:Date.now() }).then(()=>{},()=>{}); }}
             style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#6366f1", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Vérifier</button>
           {r===false && <button onClick={() => alert("💡 "+ex.hint)} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#f59e0b", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Indice</button>}
         </div>
-        {r===false && <div style={{ marginTop:8, padding:10, background:"rgba(239,68,68,.1)", borderRadius:8, fontSize:13, color:"#fca5a5" }}>Réponse : {ex.answer}</div>}
+        {r===false && <div style={{ marginTop:8, padding:12, background:"rgba(239,68,68,.08)", borderRadius:10, fontSize:13, border:"1px solid rgba(239,68,68,.2)" }}>
+          <div style={{ color:"#fca5a5", marginBottom:6 }}>Réponse attendue : <strong style={{ color:"#e2e8f0" }}>{ex.answer}</strong></div>
+          {errMsgs[gi] ? <div style={{ color:"#fbbf24", fontSize:12, lineHeight:1.5 }}>⚠️ <strong>L'erreur à ne plus refaire :</strong> {errMsgs[gi]}</div> : <div style={{ color:"#64748b", fontSize:11 }}>🔍 Analyse en cours...</div>}
+        </div>}
       </div>
     ); })}
     <AiChat ctx={`Exercices Séance ${s.id}: ${s.title}`} txt={s.exercises.map(e=>e.q).join("\n")} />
