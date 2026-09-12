@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
@@ -117,7 +117,7 @@ function BilanExercise({ exercise, index, color }) {
   );
 }
 
-export default function BilanPage() {
+function BilanContent() {
   const searchParams = useSearchParams();
   const matCode = searchParams.get("matiere") || "MA";
   const mat = MATIERE_MAP[matCode] || MATIERE_MAP.MA;
@@ -265,5 +265,13 @@ export default function BilanPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function BilanPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight:"100vh", background:"#0f172a", color:"#94a3b8", display:"flex", alignItems:"center", justifyContent:"center" }}>Chargement...</div>}>
+      <BilanContent />
+    </Suspense>
   );
 }
