@@ -368,26 +368,31 @@ function Quiz({ s, mark }) {
 }
 
 function AiChat({ ctx, txt }) {
+  const storageKey = "profIA_Maths_" + ctx;
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [msgs, setMsgs] = useState([]);
   const [ld, setLd] = useState(false);
   const ref = useRef(null);
+  useEffect(() => { try { const saved = JSON.parse(localStorage.getItem(storageKey) || "[]"); if(saved.length) setMsgs(saved); } catch {} }, [storageKey]);
   useEffect(() => { if(ref.current) ref.current.scrollTop=ref.current.scrollHeight; }, [msgs]);
+  const save = (m) => { try { localStorage.setItem(storageKey, JSON.stringify(m)); } catch {} };
   const ask = async () => {
     if(!q.trim()||ld) return;
-    const u = q.trim(); setQ(""); setMsgs(m=>[...m,{r:"user",t:u}]); setLd(true);
+    const u = q.trim(); setQ("");
+    const newMsgs = [...msgs,{r:"user",t:u}]; setMsgs(newMsgs); save(newMsgs); setLd(true);
     try {
       const r = await fetch("/api/ai/corriger", { method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ type:"aide", question:u, reponse:u, section:ctx, cours:txt, matiere:"Maths", history:msgs }) });
+        body: JSON.stringify({ type:"aide", question:u, reponse:u, section:ctx, cours:txt, matiere:"Maths", history:newMsgs.slice(0,-1) }) });
       const d = await r.json();
-      setMsgs(m=>[...m,{r:"ai",t:d.reply||"Erreur."}]);
-    } catch { setMsgs(m=>[...m,{r:"ai",t:"Erreur de connexion."}]); }
+      const final = [...newMsgs,{r:"ai",t:d.reply||"Erreur."}]; setMsgs(final); save(final);
+    } catch { const final = [...newMsgs,{r:"ai",t:"Erreur de connexion."}]; setMsgs(final); save(final); }
     setLd(false);
   };
-  if(!open) return <div onClick={()=>setOpen(true)} style={{ background:"linear-gradient(135deg,#6366f1,#818cf8)", padding:14, borderRadius:12, textAlign:"center", cursor:"pointer", marginTop:16, fontWeight:700, fontSize:14, color:"#fff" }}>🤖 Je suis bloqué — Prof IA</div>;
+  const clearHistory = () => { setMsgs([]); localStorage.removeItem(storageKey); };
+  if(!open) return <div onClick={()=>setOpen(true)} style={{ background:"linear-gradient(135deg,#6366f1,#818cf8)", padding:14, borderRadius:12, textAlign:"center", cursor:"pointer", marginTop:16, fontWeight:700, fontSize:14, color:"#fff" }}>{msgs.length > 0 ? "🤖 Prof IA (conversation en cours)" : "🤖 Je suis bloqué — Prof IA"}</div>;
   return (<div style={{ background:"#1e293b", borderRadius:14, padding:18, marginTop:16, border:"2px solid #6366f1" }}>
-    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:10 }}><span style={{ fontWeight:700, color:"#818cf8" }}>🤖 Prof de Maths IA</span><span onClick={()=>{setOpen(false);setMsgs([]);}} style={{ cursor:"pointer", color:"#94a3b8" }}>✕</span></div>
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}><span style={{ fontWeight:700, color:"#818cf8" }}>🤖 Prof de Maths IA</span><div style={{ display:"flex", gap:10, alignItems:"center" }}>{msgs.length>0 && <span onClick={clearHistory} style={{ cursor:"pointer", fontSize:11, color:"#f87171" }}>Effacer</span>}<span onClick={()=>setOpen(false)} style={{ cursor:"pointer", color:"#94a3b8" }}>✕</span></div></div>
     <div ref={ref} style={{ maxHeight:250, overflowY:"auto", marginBottom:10 }}>
       {msgs.length===0 && <div style={{ fontSize:13, color:"#94a3b8", fontStyle:"italic" }}>Pose ta question...</div>}
       {msgs.map((m,i) => <div key={i} style={{ marginBottom:8, padding:10, borderRadius:10, background:m.r==="user"?"rgba(99,102,241,.15)":"rgba(34,197,94,.1)", borderLeft:`3px solid ${m.r==="user"?"#6366f1":"#22c55e"}` }}>
