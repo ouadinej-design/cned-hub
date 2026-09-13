@@ -199,7 +199,7 @@ export default function PlanningPage() {
   const isSlotDone = (ds, s) => {
     const key = slotKey(ds, s);
     if (Object.prototype.hasOwnProperty.call(stored, key)) return stored[key];
-    return !s.prof && hasActivity(ds, s.matiere);
+    return false;
   };
   const dayFullyDone = (date) => { const ds = formatDate(date); const sch = getSchedule(date); if (sch.type !== "normal" || !sch.slots) return false; const matieres = [...new Set(sch.slots.filter(s=>!s.prof).map(s=>s.matiere))]; return matieres.length>0 && matieres.every(m => hasActivity(ds, m)); };
   const slotKey = (ds, s) => `${ds}__${s.matiere}__${s.time}`;
@@ -290,7 +290,9 @@ export default function PlanningPage() {
           const cursDone = !s.prof && hasActivity(ds, s.matiere);
           const doneSlot = isSlotDone(ds, s);
           const isBilan = (s.desc||"").toLowerCase().includes("bilan");
-          const cursHref = isBilan ? `/cours/bilan?matiere=${s.matiere}` : {FR:"/cours/francais",MA:"/cours/maths",SE:"/cours/ses",HG:"/cours/hggsp",HI:"/cours/histgeo",EM:"/cours/emc",SC:"/cours/enssci",AN:"/cours/anglais",ES:"/cours/espagnol"}[s.matiere];
+          const seanceNum = Math.min(wo + 1, 12);
+          const baseHref = {FR:"/cours/francais",MA:"/cours/maths",SE:"/cours/ses",HG:"/cours/hggsp",HI:"/cours/histgeo",EM:"/cours/emc",SC:"/cours/enssci",AN:"/cours/anglais",ES:"/cours/espagnol"}[s.matiere];
+          const cursHref = isBilan ? `/cours/bilan?matiere=${s.matiere}` : `${baseHref}?seance=${seanceNum}`;
           return (
             <div key={i} style={{ display:"flex", alignItems:"stretch", gap:8, marginBottom:8 }}>
               <button onClick={() => toggleSlot(ds, s.matiere, s.time, doneSlot)}

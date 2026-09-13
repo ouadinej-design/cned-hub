@@ -1,5 +1,6 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, Suspense, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
 
@@ -221,8 +222,10 @@ export default function HggspPage() {
     return () => { clearInterval(iv); clearInterval(flushIv); flush(); document.removeEventListener("visibilitychange", onHide); window.removeEventListener("beforeunload", flush); };
   }, []);
 
-  const [view, setView] = useState("home");
-  const [si, setSi] = useState(0);
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const initSeance = searchParams?.get("seance");
+  const [view, setView] = useState(initSeance ? "s" : "home");
+  const [si, setSi] = useState(initSeance ? Math.max(0, Math.min(parseInt(initSeance)-1, SEANCES.length-1)) : 0);
   const [li, setLi] = useState(0);
   const [tab, setTab] = useState("cours");
   const [prog, setProg] = useState(() => { try { const s = typeof window!=="undefined" && localStorage.getItem("hggspp"); return s ? JSON.parse(s) : {}; } catch { return {}; } });
