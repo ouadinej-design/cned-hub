@@ -8,7 +8,7 @@ export default function DevoirsPage() {
   const save = (s) => { setSent(s); try { localStorage.setItem("dv", JSON.stringify(s)); } catch {} };
   const toggle = (id) => { const n = { ...sent }; if (n[id]) delete n[id]; else n[id] = new Date().toISOString().split("T")[0]; save(n); };
 
-  const devoirs = filter === "all" ? DEVOIRS : DEVOIRS.filter(d => d.m === filter);
+  const devoirs = (filter === "all" ? DEVOIRS : DEVOIRS.filter(d => d.m === filter)).slice().sort((a, b) => a.deadline.localeCompare(b.deadline));
   const s1 = devoirs.filter(d => d.sem === 1);
   const s2 = devoirs.filter(d => d.sem === 2);
   const s1Done = s1.filter(d => sent[d.id]).length;
