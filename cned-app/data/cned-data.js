@@ -58,83 +58,83 @@ export const MATIERES = {
   EM: { nom: "EMC", court: "EMC", color: "#a855f7", bg: "#f3e8ff", text: "#6b21a8", priority: 3 },
 };
 
-// ─── DEVOIRS CNED (TOUS) ───
-// Deadline = date limite recommandée (avancée avant vacances si nécessaire)
-// realDeadline = vraie date CNED
+// ─── DEVOIRS CNED (TOUS) — Source : Planning indicatif CNED Première Générale 2026-2027 ───
+// deadline = vendredi de la semaine CNED indiquée
+// type: "depot" = correction enseignante, "ligne" = correction automatisée
 export const DEVOIRS = [
-  // ══ SEMESTRE 1 (avant 17 jan 2027) ══
-  // Français (8 devoirs total, 4 en S1)
-  { id: "FR-1", m: "FR", n: 1, sem: 1, deadline: "2026-10-04", type: "depot", seq: 1 },
-  { id: "FR-2", m: "FR", n: 2, sem: 1, deadline: "2026-10-25", type: "depot", seq: 2 },
-  { id: "FR-3", m: "FR", n: 3, sem: 1, deadline: "2026-11-15", type: "depot", seq: 3 },
-  { id: "FR-4", m: "FR", n: 4, sem: 1, deadline: "2026-12-13", type: "depot", seq: 4 },
-  // Maths spé (6 total, 3 en S1)
-  { id: "MA-1", m: "MA", n: 1, sem: 1, deadline: "2026-09-27", type: "depot", seq: 1 },
-  { id: "MA-2", m: "MA", n: 2, sem: 1, deadline: "2026-10-16", type: "ligne", seq: 1, note: "Avancé : vacances Toussaint" },
-  { id: "MA-3", m: "MA", n: 3, sem: 1, deadline: "2026-12-06", type: "depot", seq: 2 },
-  // Hist-Géo (6 total, 3 en S1)
-  { id: "HI-1", m: "HI", n: 1, sem: 1, deadline: "2026-10-04", type: "depot", seq: 1 },
-  { id: "HI-2", m: "HI", n: 2, sem: 1, deadline: "2026-10-16", type: "depot", seq: 2, note: "Avancé : vacances Toussaint" },
-  { id: "HI-3", m: "HI", n: 3, sem: 1, deadline: "2026-12-13", type: "depot", seq: 3 },
-  // SES (6 total, 3 en S1)
-  { id: "SE-1", m: "SE", n: 1, sem: 1, deadline: "2026-10-04", type: "depot", seq: 1 },
-  { id: "SE-2", m: "SE", n: 2, sem: 1, deadline: "2026-10-16", type: "depot", seq: 2, note: "Avancé : vacances Toussaint" },
-  { id: "SE-3", m: "SE", n: 3, sem: 1, deadline: "2026-12-13", type: "depot", seq: 3 },
-  // HGGSP (6 total, 3 en S1)
-  { id: "HG-1", m: "HG", n: 1, sem: 1, deadline: "2026-10-04", type: "depot", seq: 1 },
-  { id: "HG-2", m: "HG", n: 2, sem: 1, deadline: "2026-10-16", type: "depot", seq: 2, note: "Avancé : vacances Toussaint" },
-  { id: "HG-3", m: "HG", n: 3, sem: 1, deadline: "2026-12-13", type: "depot", seq: 3 },
-  // Anglais (6 total, 3 en S1)
-  { id: "AN-1", m: "AN", n: 1, sem: 1, deadline: "2026-10-11", type: "depot", seq: 1 },
-  { id: "AN-2", m: "AN", n: 2, sem: 1, deadline: "2026-11-22", type: "depot", seq: 2 },
-  { id: "AN-3", m: "AN", n: 3, sem: 1, deadline: "2027-01-10", type: "depot", seq: 3 },
-  // Espagnol (6 total, 3 en S1)
-  { id: "ES-1", m: "ES", n: 1, sem: 1, deadline: "2026-10-11", type: "depot", seq: 1 },
-  { id: "ES-2", m: "ES", n: 2, sem: 1, deadline: "2026-11-22", type: "depot", seq: 2 },
-  { id: "ES-3", m: "ES", n: 3, sem: 1, deadline: "2027-01-10", type: "depot", seq: 3 },
-  // Ens.Sci (4 total, 2 en S1)
-  { id: "SC-1", m: "SC", n: 1, sem: 1, deadline: "2026-10-16", type: "ligne", seq: 1, note: "Avancé : vacances Toussaint" },
-  { id: "SC-2", m: "SC", n: 2, sem: 1, deadline: "2026-12-13", type: "ligne", seq: 2 },
-  // EMC (4 total, 2 en S1)
-  { id: "EM-1", m: "EM", n: 1, sem: 1, deadline: "2026-10-16", type: "ligne", seq: 1, note: "Avancé : vacances Toussaint" },
-  { id: "EM-2", m: "EM", n: 2, sem: 1, deadline: "2027-01-10", type: "ligne", seq: 2 },
+  // ══ SEMESTRE 1 (sept → jan) ══
+  // Français (8 devoirs : tous dépôt)
+  { id: "FR-1", m: "FR", n: 1, sem: 1, deadline: "2026-10-02", type: "depot", seq: 1 },
+  { id: "FR-2", m: "FR", n: 2, sem: 1, deadline: "2026-10-30", type: "depot", seq: 2 },
+  { id: "FR-3", m: "FR", n: 3, sem: 1, deadline: "2026-11-20", type: "depot", seq: 3 },
+  { id: "FR-4", m: "FR", n: 4, sem: 1, deadline: "2026-12-18", type: "depot", seq: 4 },
+  // Histoire-Géographie (6 devoirs : tous dépôt)
+  { id: "HI-1", m: "HI", n: 1, sem: 1, deadline: "2026-10-02", type: "depot", seq: 1 },
+  { id: "HI-2", m: "HI", n: 2, sem: 1, deadline: "2026-10-23", type: "depot", seq: 2 },
+  { id: "HI-3", m: "HI", n: 3, sem: 1, deadline: "2026-12-11", type: "depot", seq: 3 },
+  // Enseignement Scientifique (4 devoirs : tous en ligne)
+  { id: "SC-1", m: "SC", n: 1, sem: 1, deadline: "2026-10-16", type: "ligne", seq: 1 },
+  { id: "SC-2", m: "SC", n: 2, sem: 1, deadline: "2026-12-11", type: "ligne", seq: 2 },
+  // EMC (4 devoirs : tous en ligne)
+  { id: "EM-1", m: "EM", n: 1, sem: 1, deadline: "2026-10-16", type: "ligne", seq: 1 },
+  { id: "EM-2", m: "EM", n: 2, sem: 1, deadline: "2027-01-08", type: "ligne", seq: 2 },
+  // Anglais LVA (6 devoirs : tous dépôt)
+  { id: "AN-1", m: "AN", n: 1, sem: 1, deadline: "2026-10-09", type: "depot", seq: 1 },
+  { id: "AN-2", m: "AN", n: 2, sem: 1, deadline: "2026-11-20", type: "depot", seq: 2 },
+  { id: "AN-3", m: "AN", n: 3, sem: 1, deadline: "2027-01-08", type: "depot", seq: 3 },
+  // Espagnol LVB (6 devoirs : tous dépôt)
+  { id: "ES-1", m: "ES", n: 1, sem: 1, deadline: "2026-10-09", type: "depot", seq: 1 },
+  { id: "ES-2", m: "ES", n: 2, sem: 1, deadline: "2026-11-20", type: "depot", seq: 2 },
+  { id: "ES-3", m: "ES", n: 3, sem: 1, deadline: "2027-01-08", type: "depot", seq: 3 },
+  // Maths spé (6 devoirs : mix dépôt/ligne)
+  { id: "MA-1", m: "MA", n: 1, sem: 1, deadline: "2026-10-02", type: "depot", seq: 1 },
+  { id: "MA-2", m: "MA", n: 2, sem: 1, deadline: "2026-10-23", type: "depot", seq: 2 },
+  { id: "MA-3", m: "MA", n: 3, sem: 1, deadline: "2026-12-11", type: "depot", seq: 3 },
+  // HGGSP spé (6 devoirs : tous dépôt)
+  { id: "HG-1", m: "HG", n: 1, sem: 1, deadline: "2026-10-02", type: "depot", seq: 1 },
+  { id: "HG-2", m: "HG", n: 2, sem: 1, deadline: "2026-10-23", type: "depot", seq: 2 },
+  { id: "HG-3", m: "HG", n: 3, sem: 1, deadline: "2026-12-11", type: "depot", seq: 3 },
+  // SES spé (6 devoirs : tous dépôt)
+  { id: "SE-1", m: "SE", n: 1, sem: 1, deadline: "2026-10-02", type: "depot", seq: 1 },
+  { id: "SE-2", m: "SE", n: 2, sem: 1, deadline: "2026-10-23", type: "depot", seq: 2 },
+  { id: "SE-3", m: "SE", n: 3, sem: 1, deadline: "2026-12-11", type: "depot", seq: 3 },
 
-  // ══ SEMESTRE 2 (avant 25 avr 2027) ══
+  // ══ SEMESTRE 2 (fév → mai) ══
   // Français
-  { id: "FR-5", m: "FR", n: 5, sem: 2, deadline: "2027-02-07", type: "depot", seq: 5 },
-  { id: "FR-6", m: "FR", n: 6, sem: 2, deadline: "2027-02-19", type: "ligne", seq: 6, note: "Avancé : vacances Hiver" },
-  { id: "FR-7", m: "FR", n: 7, sem: 2, deadline: "2027-03-28", type: "depot", seq: 7 },
-  { id: "FR-8", m: "FR", n: 8, sem: 2, deadline: "2027-04-16", type: "depot", seq: 8, note: "Avancé : vacances Printemps" },
-  // Maths
-  { id: "MA-4", m: "MA", n: 4, sem: 2, deadline: "2027-01-31", type: "ligne", seq: 3 },
-  { id: "MA-5", m: "MA", n: 5, sem: 2, deadline: "2027-03-14", type: "depot", seq: 4 },
-  { id: "MA-6", m: "MA", n: 6, sem: 2, deadline: "2027-04-16", type: "depot", seq: 5, note: "Avancé : vacances Printemps" },
-  // Hist-Géo
-  { id: "HI-4", m: "HI", n: 4, sem: 2, deadline: "2027-02-14", type: "depot", seq: 4 },
-  { id: "HI-5", m: "HI", n: 5, sem: 2, deadline: "2027-03-21", type: "depot", seq: 5 },
-  { id: "HI-6", m: "HI", n: 6, sem: 2, deadline: "2027-04-16", type: "depot", seq: 6, note: "Avancé : vacances Printemps" },
-  // SES
-  { id: "SE-4", m: "SE", n: 4, sem: 2, deadline: "2027-02-14", type: "depot", seq: 4 },
-  { id: "SE-5", m: "SE", n: 5, sem: 2, deadline: "2027-03-21", type: "depot", seq: 5 },
-  { id: "SE-6", m: "SE", n: 6, sem: 2, deadline: "2027-04-16", type: "depot", seq: 6, note: "Avancé : vacances Printemps" },
-  // HGGSP
-  { id: "HG-4", m: "HG", n: 4, sem: 2, deadline: "2027-02-14", type: "depot", seq: 4 },
-  { id: "HG-5", m: "HG", n: 5, sem: 2, deadline: "2027-03-21", type: "depot", seq: 5 },
-  { id: "HG-6", m: "HG", n: 6, sem: 2, deadline: "2027-04-16", type: "depot", seq: 6, note: "Avancé : vacances Printemps" },
-  // Anglais
-  { id: "AN-4", m: "AN", n: 4, sem: 2, deadline: "2027-02-14", type: "depot", seq: 4 },
-  { id: "AN-5", m: "AN", n: 5, sem: 2, deadline: "2027-03-21", type: "depot", seq: 5 },
-  { id: "AN-6", m: "AN", n: 6, sem: 2, deadline: "2027-04-16", type: "depot", seq: 6, note: "Avancé : vacances Printemps" },
-  // Espagnol
-  { id: "ES-4", m: "ES", n: 4, sem: 2, deadline: "2027-02-14", type: "depot", seq: 4 },
-  { id: "ES-5", m: "ES", n: 5, sem: 2, deadline: "2027-03-21", type: "depot", seq: 5 },
-  { id: "ES-6", m: "ES", n: 6, sem: 2, deadline: "2027-04-16", type: "depot", seq: 6, note: "Avancé : vacances Printemps" },
-  // Ens.Sci
-  { id: "SC-3", m: "SC", n: 3, sem: 2, deadline: "2027-02-19", type: "ligne", seq: 3, note: "Avancé : vacances Hiver" },
-  { id: "SC-4", m: "SC", n: 4, sem: 2, deadline: "2027-04-16", type: "ligne", seq: 4, note: "Avancé : vacances Printemps" },
+  { id: "FR-5", m: "FR", n: 5, sem: 2, deadline: "2027-02-05", type: "depot", seq: 5 },
+  { id: "FR-6", m: "FR", n: 6, sem: 2, deadline: "2027-02-19", type: "depot", seq: 6 },
+  { id: "FR-7", m: "FR", n: 7, sem: 2, deadline: "2027-03-26", type: "depot", seq: 7 },
+  { id: "FR-8", m: "FR", n: 8, sem: 2, deadline: "2027-04-16", type: "depot", seq: 8 },
+  // Histoire-Géographie
+  { id: "HI-4", m: "HI", n: 4, sem: 2, deadline: "2027-02-12", type: "depot", seq: 4 },
+  { id: "HI-5", m: "HI", n: 5, sem: 2, deadline: "2027-03-19", type: "depot", seq: 5 },
+  { id: "HI-6", m: "HI", n: 6, sem: 2, deadline: "2027-04-16", type: "depot", seq: 6 },
+  // Enseignement Scientifique
+  { id: "SC-3", m: "SC", n: 3, sem: 2, deadline: "2027-02-19", type: "ligne", seq: 3 },
+  { id: "SC-4", m: "SC", n: 4, sem: 2, deadline: "2027-04-16", type: "ligne", seq: 4 },
   // EMC
-  { id: "EM-3", m: "EM", n: 3, sem: 2, deadline: "2027-02-19", type: "ligne", seq: 3, note: "Avancé : vacances Hiver" },
-  { id: "EM-4", m: "EM", n: 4, sem: 2, deadline: "2027-04-16", type: "ligne", seq: 4, note: "Avancé : vacances Printemps" },
+  { id: "EM-3", m: "EM", n: 3, sem: 2, deadline: "2027-02-19", type: "ligne", seq: 3 },
+  { id: "EM-4", m: "EM", n: 4, sem: 2, deadline: "2027-04-16", type: "ligne", seq: 4 },
+  // Anglais LVA
+  { id: "AN-4", m: "AN", n: 4, sem: 2, deadline: "2027-02-12", type: "depot", seq: 4 },
+  { id: "AN-5", m: "AN", n: 5, sem: 2, deadline: "2027-03-19", type: "depot", seq: 5 },
+  { id: "AN-6", m: "AN", n: 6, sem: 2, deadline: "2027-04-16", type: "depot", seq: 6 },
+  // Espagnol LVB
+  { id: "ES-4", m: "ES", n: 4, sem: 2, deadline: "2027-02-12", type: "depot", seq: 4 },
+  { id: "ES-5", m: "ES", n: 5, sem: 2, deadline: "2027-03-19", type: "depot", seq: 5 },
+  { id: "ES-6", m: "ES", n: 6, sem: 2, deadline: "2027-04-16", type: "depot", seq: 6 },
+  // Maths spé
+  { id: "MA-4", m: "MA", n: 4, sem: 2, deadline: "2027-01-29", type: "depot", seq: 4 },
+  { id: "MA-5", m: "MA", n: 5, sem: 2, deadline: "2027-03-12", type: "depot", seq: 5 },
+  { id: "MA-6", m: "MA", n: 6, sem: 2, deadline: "2027-04-16", type: "depot", seq: 6 },
+  // HGGSP spé
+  { id: "HG-4", m: "HG", n: 4, sem: 2, deadline: "2027-02-12", type: "depot", seq: 4 },
+  { id: "HG-5", m: "HG", n: 5, sem: 2, deadline: "2027-03-19", type: "depot", seq: 5 },
+  { id: "HG-6", m: "HG", n: 6, sem: 2, deadline: "2027-04-16", type: "depot", seq: 6 },
+  // SES spé
+  { id: "SE-4", m: "SE", n: 4, sem: 2, deadline: "2027-02-12", type: "depot", seq: 4 },
+  { id: "SE-5", m: "SE", n: 5, sem: 2, deadline: "2027-03-19", type: "depot", seq: 5 },
+  { id: "SE-6", m: "SE", n: 6, sem: 2, deadline: "2027-04-16", type: "depot", seq: 6 },
 ];
 
 // ─── EMPLOI DU TEMPS HEBDOMADAIRE ───
