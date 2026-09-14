@@ -1,7 +1,7 @@
 "use client";
 import { useState, Suspense, useCallback, useRef, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { SessionTimer, RevisionFlash, SessionScore } from "../session-tools";
+import { MasteryGate, SpacedRevision, AutomatismesWidget, recordMastery, RevisionFlash, SessionScore } from "../session-tools";
 import { supabase } from "../../../lib/supabase";
 
 
@@ -294,20 +294,14 @@ export default function MathsPage() {
           <div style={{ fontSize:12, color:"#94a3b8" }}>Séquence 1 — Polynômes du second degré</div>
         </div>
       </div>
-      <div style={{ background:"#1e293b", borderRadius:14, padding:16, marginBottom:20 }}>
+      <AutomatismesWidget />
+      <SpacedRevision matiereCode="MA" seances={SEANCES} onGoToSeance={(i) => { setSi(i); setView("s"); setTab("exercices"); setLi(0); }} />
+      <div style={{ background:"#1e293b", borderRadius:14, padding:16, marginBottom:16 }}>
         <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}><span style={{ fontWeight:700 }}>Progression</span><span style={{ color:"#818cf8", fontWeight:700 }}>{pct}%</span></div>
         <div style={{ height:10, background:"#334155", borderRadius:5, overflow:"hidden" }}><div style={{ width:`${pct}%`, height:"100%", background:"linear-gradient(90deg,#6366f1,#818cf8)", borderRadius:5, transition:"width .5s" }} /></div>
-        <div style={{ fontSize:12, color:"#94a3b8", marginTop:6 }}>{cnt}/{total} complétés</div>
+        <div style={{ fontSize:12, color:"#94a3b8", marginTop:6 }}>{cnt}/{total} complétés · Score ≥ 70% pour débloquer la suite</div>
       </div>
-      {SEANCES.map((x, i) => { const d = [done(x.id,"lessons"), done(x.id,"exercises"), done(x.id,"quiz")]; const c = d.filter(Boolean).length; return (
-        <div key={x.id} onClick={() => { setSi(i); setView("s"); setTab("cours"); setLi(0); }}
-          style={{ background:"#1e293b", borderRadius:14, padding:16, marginBottom:10, cursor:"pointer", borderLeft:`4px solid ${c===3?"#22c55e":c>0?"#f59e0b":"#334155"}` }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-            <div><div style={{ fontSize:12, color:"#818cf8", fontWeight:600 }}>Séance {x.id}</div><div style={{ fontWeight:700, fontSize:15 }}>{x.title}</div></div>
-            <div style={{ display:"flex", gap:4 }}>{["📖","✏️","🧪"].map((e,j) => <span key={j} style={{ fontSize:16, opacity:d[j]?1:0.3 }}>{e}</span>)}</div>
-          </div>
-        </div>
-      ); })}
+      <MasteryGate matiereCode="MA" seances={SEANCES} onSelectSeance={(i) => { setSi(i); setView("s"); setTab("cours"); setLi(0); }} currentProgress={done} />
     </div>
   );
 
@@ -324,13 +318,12 @@ export default function MathsPage() {
           </div>
         ))}
       </div>
-      <div style={ padding:"0 16px 12px" }>
-        <SessionTimer matiere="Maths" />
+      <div style={{ padding:"0 16px 12px" }}>
         <RevisionFlash matiere="Maths" matiereCode="MA" />
       </div>
-      <div style={ padding:"0 16px 80px" }>
+      <div style={{ padding:"0 16px 80px" }}>
         {tab === "cours" && <Cours s={s} li={li} setLi={setLi} mark={mark} />}
-        {tab === "exercices" && <Exos s={s} mark={mark} />}
+        {tab === "exercices" && <Exos s={s} mark={mark} setSessionAttempted={setSessionAttempted} setSessionCorrect={setSessionCorrect} />}
         {tab === "quiz" && <Quiz s={s} mark={mark} />}
         <SessionScore attempted={sessionAttempted} correct={sessionCorrect} startTime={sessionStart} />
       </div>
@@ -358,13 +351,19 @@ function Cours({ s, li, setLi, mark }) {
   </div>);
 }
 
-function Exos({ s, mark }) {
+function Exos({ s, mark, setSessionAttempted, setSessionCorrect }) {
   const [ans, setAns] = useState({});
   const [res, setRes] = useState({});
   const [errMsgs, setErrMsgs] = useState({});
   const [fl, setFl] = useState(0);
   const exs = fl===0 ? s.exercises : s.exercises.filter(e => e.level===fl);
-  useEffect(() => { if (Object.keys(res).length >= s.exercises.length) mark(s.id, "exercises"); }, [res]);
+  useEffect(() => {
+    if (Object.keys(res).length >= s.exercises.length) {
+      mark(s.id, "exercises");
+      const correct = Object.values(res).filter(Boolean).length;
+      recordMastery("MA", s.id, correct, s.exercises.length);
+    }
+  }, [res]);
   return (<div>
     <div style={{ display:"flex", gap:6, marginBottom:16 }}>
       {[0,1,2,3].map(l => <div key={l} onClick={() => setFl(l)} style={{ padding:"6px 14px", borderRadius:20, fontSize:12, fontWeight:600, cursor:"pointer", background:fl===l?(l===0?"#6366f1":LEVELS[l]?.c):"#1e293b", color:fl===l?"#fff":"#94a3b8" }}>{l===0?"Tous":LEVELS[l].label}</div>)}
@@ -379,7 +378,7 @@ function Exos({ s, mark }) {
         <input value={ans[gi]||""} onChange={e => setAns({...ans,[gi]:e.target.value})} placeholder="Ta réponse..."
           style={{ width:"100%", padding:10, borderRadius:8, border:"1px solid #334155", background:"#0f172a", color:"#e2e8f0", fontSize:14, boxSizing:"border-box" }} />
         <div style={{ display:"flex", gap:8, marginTop:10 }}>
-          <button onClick={() => { const ok=checkAnswer(ans[gi]||"", ex.answer); setRes({...res,[gi]:ok}); setSessionAttempted(a=>a+1); if(ok) setSessionCorrect(c=>c+1); if(!ok) { logDifficulty("Maths", s.title, ex.q, ans[gi]||"(vide)", ex.answer, ex.hint); fetch("/api/ai/corriger", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ type:"erreur_analyse", matiere:"Maths", question:ex.q, reponse:ans[gi]||"(vide)", exercices:ex.answer }) }).then(r=>r.json()).then(d=>{ if(d.reply) setErrMsgs(m=>({...m,[gi]:d.reply})); }).catch(()=>{}); } supabase.from("attempts_log").insert({ event_date:new Date().toISOString().split("T")[0], matiere:"MA", seance:s.title, type:"exercice", identifier:ex.q, correct:ok, ts:Date.now() }).then(()=>{},()=>{}); }}
+          <button onClick={() => { const ok=checkAnswer(ans[gi]||"", ex.answer); setRes({...res,[gi]:ok}); if(setSessionAttempted) setSessionAttempted(a=>a+1); if(ok && setSessionCorrect) setSessionCorrect(c=>c+1); if(!ok) { logDifficulty("Maths", s.title, ex.q, ans[gi]||"(vide)", ex.answer, ex.hint); fetch("/api/ai/corriger", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ type:"erreur_analyse", matiere:"Maths", question:ex.q, reponse:ans[gi]||"(vide)", exercices:ex.answer }) }).then(r=>r.json()).then(d=>{ if(d.reply) setErrMsgs(m=>({...m,[gi]:d.reply})); }).catch(()=>{}); } supabase.from("attempts_log").insert({ event_date:new Date().toISOString().split("T")[0], matiere:"MA", seance:s.title, type:"exercice", identifier:ex.q, correct:ok, ts:Date.now() }).then(()=>{},()=>{}); }}
             style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#6366f1", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Vérifier</button>
           {r===false && <button onClick={() => alert("💡 "+ex.hint)} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#f59e0b", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Indice</button>}
         </div>
