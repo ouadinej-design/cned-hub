@@ -211,11 +211,11 @@ export default function EnsSciPage() {
           </div>
         ))}
       </div>
-      <div style={ padding:"0 16px 12px" }>
+      <div style={{ padding:"0 16px 12px" }}>
         <SessionTimer matiere="Enseignement Scientifique" />
         <RevisionFlash matiere="Enseignement Scientifique" matiereCode="SC" />
       </div>
-      <div style={ padding:"0 16px 80px" }>
+      <div style={{ padding:"0 16px 80px" }}>
         {tab === "cours" && <Cours s={s} li={li} setLi={setLi} mark={mark} />}
         {tab === "exercices" && <Exos s={s} mark={mark} />}
         {tab === "quiz" && <Quiz s={s} mark={mark} />}
