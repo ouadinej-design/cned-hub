@@ -1,6 +1,7 @@
 "use client";
 import { useState, Suspense, useCallback, useRef, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { SessionTimer, RevisionFlash, SessionScore } from "../session-tools";
 import { supabase } from "../../../lib/supabase";
 
 
@@ -272,6 +273,9 @@ export default function MathsPage() {
   const [si, setSi] = useState(initSeance ? Math.max(0, Math.min(parseInt(initSeance)-1, SEANCES.length-1)) : 0);
   const [li, setLi] = useState(0);
   const [tab, setTab] = useState("cours");
+  const [sessionAttempted, setSessionAttempted] = useState(0);
+  const [sessionCorrect, setSessionCorrect] = useState(0);
+  const [sessionStart] = useState(Date.now());
   const [prog, setProg] = useState(() => { try { const s = typeof window!=="undefined" && localStorage.getItem("mp"); return s ? JSON.parse(s) : {}; } catch { return {}; } });
   const save = (p) => { setProg(p); try { localStorage.setItem("mp", JSON.stringify(p)); } catch {} };
   const mark = (id, t) => { if (!prog[`${id}_${t}`]) { save({ ...prog, [`${id}_${t}`]: true }); logActivity("MA"); } };
@@ -320,10 +324,15 @@ export default function MathsPage() {
           </div>
         ))}
       </div>
-      <div style={{ padding:"0 16px 80px" }}>
+      <div style={ padding:"0 16px 12px" }>
+        <SessionTimer matiere="Maths" />
+        <RevisionFlash matiere="Maths" matiereCode="MA" />
+      </div>
+      <div style={ padding:"0 16px 80px" }>
         {tab === "cours" && <Cours s={s} li={li} setLi={setLi} mark={mark} />}
         {tab === "exercices" && <Exos s={s} mark={mark} />}
         {tab === "quiz" && <Quiz s={s} mark={mark} />}
+        <SessionScore attempted={sessionAttempted} correct={sessionCorrect} startTime={sessionStart} />
       </div>
     </div>
   );
@@ -370,7 +379,7 @@ function Exos({ s, mark }) {
         <input value={ans[gi]||""} onChange={e => setAns({...ans,[gi]:e.target.value})} placeholder="Ta réponse..."
           style={{ width:"100%", padding:10, borderRadius:8, border:"1px solid #334155", background:"#0f172a", color:"#e2e8f0", fontSize:14, boxSizing:"border-box" }} />
         <div style={{ display:"flex", gap:8, marginTop:10 }}>
-          <button onClick={() => { const ok=checkAnswer(ans[gi]||"", ex.answer); setRes({...res,[gi]:ok}); if(!ok) { logDifficulty("Maths", s.title, ex.q, ans[gi]||"(vide)", ex.answer, ex.hint); fetch("/api/ai/corriger", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ type:"erreur_analyse", matiere:"Maths", question:ex.q, reponse:ans[gi]||"(vide)", exercices:ex.answer }) }).then(r=>r.json()).then(d=>{ if(d.reply) setErrMsgs(m=>({...m,[gi]:d.reply})); }).catch(()=>{}); } supabase.from("attempts_log").insert({ event_date:new Date().toISOString().split("T")[0], matiere:"MA", seance:s.title, type:"exercice", identifier:ex.q, correct:ok, ts:Date.now() }).then(()=>{},()=>{}); }}
+          <button onClick={() => { const ok=checkAnswer(ans[gi]||"", ex.answer); setRes({...res,[gi]:ok}); setSessionAttempted(a=>a+1); if(ok) setSessionCorrect(c=>c+1); if(!ok) { logDifficulty("Maths", s.title, ex.q, ans[gi]||"(vide)", ex.answer, ex.hint); fetch("/api/ai/corriger", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ type:"erreur_analyse", matiere:"Maths", question:ex.q, reponse:ans[gi]||"(vide)", exercices:ex.answer }) }).then(r=>r.json()).then(d=>{ if(d.reply) setErrMsgs(m=>({...m,[gi]:d.reply})); }).catch(()=>{}); } supabase.from("attempts_log").insert({ event_date:new Date().toISOString().split("T")[0], matiere:"MA", seance:s.title, type:"exercice", identifier:ex.q, correct:ok, ts:Date.now() }).then(()=>{},()=>{}); }}
             style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#6366f1", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Vérifier</button>
           {r===false && <button onClick={() => alert("💡 "+ex.hint)} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#f59e0b", color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" }}>Indice</button>}
         </div>
